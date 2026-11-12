@@ -3,6 +3,11 @@
 export const sp = (t) => t.split('').join(' ');
 // [text, lon, lat, kind, minRange(m), maxRange(m), priority]
 export const PLACES = [
+  // world view (flat map zoomed right out)
+  ['EUROPE', 15, 50, 'world', 0, 0, 60], ['AFRICA', 20, 5, 'world', 0, 0, 60], ['ASIA', 90, 50, 'world', 0, 0, 60],
+  ['NORTH AMERICA', -100, 45, 'world', 0, 0, 60], ['SOUTH AMERICA', -60, -15, 'world', 0, 0, 60], ['AUSTRALIA', 134, -25, 'world', 0, 0, 55],
+  ['ATLANTIC OCEAN', -35, 25, 'ocean', 0, 0, 50], ['PACIFIC OCEAN', -150, 10, 'ocean', 0, 0, 50], ['INDIAN OCEAN', 78, -20, 'ocean', 0, 0, 50],
+  ['ARCTIC OCEAN', 20, 77, 'ocean', 0, 0, 45], ['BALTIC', 20, 58, 'world', 0, 0, 99],
   ['BALTIC SEA', 18.6, 55.7, 'sea', 2.5e5, 7e6, 92],
   ['GULF OF FINLAND', 26.9, 59.95, 'gulf', 8e4, 2.6e6, 97],
   ['GULF OF BOTHNIA', 20.1, 62.2, 'gulf', 1.5e5, 3.2e6, 86],

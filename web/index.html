@@ -19,11 +19,111 @@
   <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- fonts never block first paint: load async, swap in when ready (system fallbacks below have close metrics) -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" /></noscript>
+  <!-- the intro globe's land (~50 KB gz) starts downloading with the HTML -->
+  <link rel="preload" href="geo/hero-land.json" as="fetch" crossorigin="anonymous" fetchpriority="high" />
+  <script>
+    // decide intro vs. straight-to-dashboard before first paint
+    (function () { var q = location.search; if (/[?&]nohero\b/.test(q)) document.documentElement.classList.add('nohero'); if (/[?&]hold\b/.test(q)) document.documentElement.classList.add('hold'); })();
+  </script>
+  <style>
+    /* critical intro CSS: paints with the HTML, before any JS or web font */
+    html, body { margin: 0; background: #05090d; }
+    .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: #05090d;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: background .7s ease; }
+    html.nohero .intro { display: none; }
+    .intro-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .5s ease; }
+    .intro-shade { position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(90deg, rgba(5,9,13,.96) 0%, rgba(5,9,13,.82) 30%, rgba(5,9,13,0) 56%), linear-gradient(0deg, rgba(5,9,13,.9) 0%, rgba(5,9,13,0) 18%); }
+    .intro-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 26px clamp(20px, 3.4vw, 56px) 0; transition: opacity .35s ease; }
+    .intro-mono, .intro-top, .intro-foot, .intro-k { font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; text-transform: uppercase; }
+    .intro-top { display: flex; justify-content: space-between; align-items: center; gap: 20px; font-size: 11px; letter-spacing: .2em; color: rgba(255,255,255,.55);
+      padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .intro-top .mark { color: #fff; letter-spacing: .28em; }
+    .intro-top .mark b { color: #53f0c9; font-weight: 400; }
+    .intro-top .live b { color: #fff; font-weight: 500; }
+    .intro-top .live i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #53f0c9; box-shadow: 0 0 10px #53f0c9; margin-right: 10px; vertical-align: 1px; animation: introBlink 1.8s ease-in-out infinite; }
+    @keyframes introBlink { 50% { opacity: .35; } }
+    .intro-mid { max-width: min(1000px, 58vw); margin: auto 0; padding-bottom: 2vh; }
+    .intro-mid p { max-width: 470px; }
+    .intro-k { font-size: 11px; letter-spacing: .26em; color: #53f0c9; margin-bottom: clamp(18px, 2.6vh, 30px); display: flex; gap: 14px; align-items: center; }
+    .intro-k::after { content: ''; height: 1px; width: 56px; background: rgba(83,240,201,.5); }
+    .intro h1 { margin: 0; font-weight: 300; font-size: clamp(46px, 6.1vw, 112px); line-height: .98; letter-spacing: -0.048em; color: #fff; }
+    .intro h1 > span { display: block; overflow: hidden; padding-bottom: .06em; white-space: nowrap; }
+    .intro h1 > span > span { display: block; animation: introUp .9s cubic-bezier(.2,.75,.15,1) both; }
+    .intro h1 > span:nth-child(2) > span { animation-delay: .12s; }
+    @keyframes introUp { from { transform: translateY(104%); } to { transform: none; } }
+    .intro p { margin: clamp(20px, 3vh, 32px) 0 0; max-width: 470px; font-size: clamp(15px, 1.15vw, 18px); line-height: 1.55; color: rgba(255,255,255,.62); animation: introFade .8s ease both .35s; }
+    .intro-act { display: flex; gap: 14px; flex-wrap: wrap; margin-top: clamp(26px, 4vh, 40px); animation: introFade .8s ease both .5s; }
+    @keyframes introFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .intro-go { font: 500 12px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .22em; color: #05090d; background: #fff; border: 0; padding: 15px 26px; cursor: pointer; transition: background .2s, color .2s; }
+    .intro-go:hover { background: #53f0c9; }
+    .intro-go span { margin-left: 10px; }
+    .intro .byline { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border: 1px solid rgba(169,139,255,.55); background: rgba(169,139,255,.1);
+      color: #a98bff; text-decoration: none; font: 500 11px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .16em; }
+    .intro .byline .byline-n { color: #e6dcff; font: 500 14px Inter, system-ui, sans-serif; letter-spacing: .01em; }
+    .intro-foot { display: flex; gap: clamp(14px, 2.2vw, 34px); align-items: center; font-size: 10.5px; letter-spacing: .18em; color: rgba(255,255,255,.45);
+      border-top: 1px solid rgba(255,255,255,.1); padding: 15px 0 18px; flex-wrap: wrap; row-gap: 6px; }
+    .intro-foot em { font-style: normal; color: rgba(255,255,255,.28); margin-right: 8px; }
+    .intro-foot .sp { flex: 1; }
+    .intro-foot .hint { color: #53f0c9; }
+    .intro-foot .hint .m { display: none; }
+    .intro-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.06); }
+    .intro-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: #53f0c9; box-shadow: 0 0 8px #53f0c9; animation: introBar 7.7s linear forwards; }
+    html.hold .intro-bar { display: none; }
+    @keyframes introBar { to { transform: scaleX(1); } }
+    body.hero-out .intro { background: transparent; pointer-events: none; }
+    body.hero-out .intro-ui, body.hero-out .intro-shade { opacity: 0; }
+    .intro.done { background: transparent; pointer-events: none; }
+    .intro.done .intro-globe { opacity: 0; }
+    .intro.done .intro-ui, .intro.done .intro-shade { opacity: 0; }
+    @media (max-width: 900px) {
+      .intro-shade { background: linear-gradient(0deg, rgba(5,9,13,.97) 0%, rgba(5,9,13,.85) 46%, rgba(5,9,13,0) 70%); }
+      .intro-ui { padding: 18px 18px 0; }
+      .intro-top { font-size: 9.5px; letter-spacing: .14em; }
+      .intro-top .mark { letter-spacing: .18em; white-space: nowrap; }
+      .intro-top .live { white-space: nowrap; }
+      .intro-top .live .opt, .intro-top .live .lbl { display: none; }
+      .intro h1 > span { white-space: normal; }
+      .intro-k { font-size: 10px; letter-spacing: .18em; }
+      .intro-mid { max-width: none; margin: auto 0 20px; padding: 0; }
+      .intro h1 { font-size: clamp(40px, 11.5vw, 64px); }
+      .intro-foot .ix { display: none; }
+      .intro-foot .hint .d { display: none; }
+      .intro-foot .hint .m { display: inline; }
+    }
+    @media (prefers-reduced-motion: reduce) { .intro *, .intro *::after { animation: none !important; } .intro-bar { display: none; } }
+  </style>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 </head>
-<body>
+<body class="hero-on">
+  <div id="hero" class="intro" aria-label="Baltic Seabed Watch: intro">
+    <canvas id="intro-globe" class="intro-globe" aria-hidden="true"></canvas>
+    <div class="intro-shade"></div>
+    <div class="intro-ui">
+      <header class="intro-top">
+        <span class="mark">BALTIC <b>SEABED</b> WATCH</span>
+        <span class="live"><i></i>LIVE · <b id="hero-n">—</b><span class="lbl"> SHIPS</span><span class="opt"> · <b id="hero-km">—</b> KM OF SEABED LINES</span></span>
+      </header>
+      <main class="intro-mid">
+        <div class="intro-k">Open-source maritime awareness</div>
+        <h1><span><span>The seabed is the</span></span><span><span>new front line.</span></span></h1>
+        <p>Ships, cables and pipelines across the Baltic, watched live from public data, with every signal's weakness shown next to it.</p>
+        <div class="intro-act">
+          <button class="intro-go" id="hero-go" type="button">ENTER<span>→</span></button>
+          <a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
+        </div>
+      </main>
+      <footer class="intro-foot">
+        <span class="ix"><em>01</em>Live AIS</span><span class="ix"><em>02</em>Cables &amp; pipelines</span><span class="ix"><em>03</em>Sanctions lists</span><span class="ix"><em>04</em>Incident log</span><span class="ix"><em>05</em>Glider coverage</span>
+        <span class="sp"></span><span class="hint"><span class="d">Click or press any key</span><span class="m">Tap anywhere to enter</span></span>
+      </footer>
+    </div>
+    <div class="intro-bar"><i></i></div>
+  </div>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
