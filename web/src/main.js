@@ -5,6 +5,7 @@ import { REGIONS, kmBetween } from './geoutil.js';
 import { createFlatMap } from './flatmap.js';
 import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
+import { renderBrief } from './brief.js';
 const ds = createDataSource();
 
 // ---------------------------------------------------------------- constants
@@ -33,7 +34,8 @@ const state = {
   grid: null,
   selectedAlert: null,
   selectedMmsi: null,
-  layers: { vessels: true, telecom: true, power: true, pipeline: true, incidents: true, gliders: true },
+  layers: { vessels: true, telecom: true, power: true, pipeline: true, incidents: true, gliders: true, sar: true },
+  sar: null, brief: null,
   preset: 'NORMAL',
   region: 'BALTIC',
   hist: { vessels: [], inCorridor: [], watchlist: [], dark: [], alerts: [], msgs: [] },
@@ -76,6 +78,8 @@ document.querySelector('#app').innerHTML = `
     <span class="chip hide-m">FEEDS<b id="c-feeds">—</b></span>
     <span class="chip hide-m">MSG/MIN<b id="c-msgs">—</b></span>
     <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m">TOUR</span></button>
+    <button class="chip btn" id="b-brief" data-tip="Today's one-page summary" aria-label="Daily brief"><svg class="bb-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke="currentColor" stroke-width="1.2"/></svg><span class="bb-t">DAILY BRIEF</span></button>
+    <a class="chip btn hide-m" id="b-how" href="./how.html">HOW IT WORKS</a>
     <button class="chip btn hide-m" id="b-signals">WHAT SIGNALS MEAN</button>
     <span class="status-pill" id="c-level" data-level="STALE">CONNECTING</span>
   </header>
@@ -190,7 +194,7 @@ document.body.insertAdjacentHTML('beforeend', `
       <div class="hero-k"><span class="hero-dot"></span>LIVE · <span id="hero-n">—</span> SHIPS · <span id="hero-km">—</span> KM OF MAPPED SEABED LINES</div>
       <h1><span>The seabed is the</span><span>new front line.</span></h1>
       <p>Ships, cables and pipelines across the Baltic, watched live from public data. It flags the patterns, says how weak they are, and shows what persistent underwater sensing would add.</p>
-      <div class="hero-actions"><button class="hero-go" id="hero-go">ENTER <span>▸</span></button><a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a></div>
+      <div class="hero-actions"><button class="hero-go" id="hero-go">ENTER <span>▸</span></button><a class="hero-how" href="./how.html">HOW IT WORKS</a><a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a></div>
     </div>
     <div class="hero-foot">
       <span>01 · LIVE AIS</span><span>02 · CABLES &amp; PIPELINES</span><span>03 · SANCTIONS LISTS</span><span>04 · INCIDENT LOG</span><span>05 · GLIDER COVERAGE (SIM)</span>
@@ -337,6 +341,7 @@ const LAYER_DEFS = [
   { k: 'pipeline', name: 'Pipelines', color: '#ffb547', ic: 'line' },
   { k: 'incidents', name: 'Past Incidents', color: '#ff4d5e', ic: '' },
   { k: 'gliders', name: 'Gliders (sim)', color: '#53f0c9', ic: '' },
+  { k: 'sar', name: 'Radar · not on AIS', color: '#ffb547', ic: 'sq' },
 ];
 function layerMeta(k) {
   const f = state.feeds || {};
@@ -350,15 +355,16 @@ function layerMeta(k) {
     case 'vessels': {
       const srcs = [];
       if (f.digitraffic) srcs.push('Digitraffic');
-      if (f.aisstream?.enabled) srcs.push('AISStream');
+      if (f.aisstream?.enabled) srcs.push('aisstream');
       const last = Math.max(Date.parse(f.digitraffic?.last || 0) || 0, Date.parse(f.aisstream?.last || 0) || 0, state.lastVesselMsg);
       return { n: state.vessels.size, src: `${srcs.join(' · ') || 'AIS'} · ${last ? ago(last) : 'waiting'}` };
     }
     case 'telecom': return { n: infraCount('telecom'), src: infraSrc('telecom') };
-    case 'power': return { n: infraCount('power'), src: `${infraSrc('power')} · DE waters only` };
+    case 'power': return { n: infraCount('power'), src: infraSrc('power').includes('OpenStreetMap') ? infraSrc('power') : `${infraSrc('power')} · DE waters only` };
     case 'pipeline': return { n: infraCount('pipeline'), src: infraSrc('pipeline') };
     case 'incidents': return { n: state.incidents.length, src: 'hand-curated · sourced' };
     case 'gliders': return { n: state.glider.N, src: `simulation · R ${state.glider.R} km` };
+    case 'sar': return state.sar ? { n: state.sar.unmatchedCells?.length || 0, src: `GFW SAR · ${state.sar.windowDays || 30} d · ${state.sar.lagDays ?? 5}-day lag` } : { n: 0, src: 'Global Fishing Watch · pending' };
   }
   return { n: 0, src: '' };
 }
@@ -460,6 +466,7 @@ function renderLegend() {
     [null, '', '#ffb547', 'ALERT'],
     ['incidents', 'dm', '#ff4d5e', 'INCIDENT'],
     ['gliders', '', '#53f0c9', 'GLIDER (SIM)'],
+    ...(state.sar?.unmatchedCells?.length ? [['sar', 'sq', '#ffb547', 'RADAR · NOT ON AIS']] : []),
   ];
   $('#legend').innerHTML = items.map(([k, ic, c, l]) => `<span class="lg ${k && !state.layers[k] ? 'off' : ''}" ${k ? `data-k="${k}" style="cursor:pointer"` : ''}><i class="${ic}" style="color:${c}"></i><span>${l}</span></span>`).join('');
 }
@@ -523,6 +530,8 @@ function renderShouldnt() {
         <li>Slow speed has dull causes: waiting for a berth, a pilot, ice or weather.</li>
         <li>AIS gaps are mostly receiver coverage, not transponders switched off.</li>
         <li>A sanctions-list match tells you about ownership, not about what the ship is doing.</li>
+        <li>Live AIS covers the northern Baltic (Digitraffic); the whole Baltic is refreshed every 15 min when aisstream is enabled.</li>
+        ${state.sar ? `<li>Radar squares: ${esc(state.sar.caveat || 'a radar detection with no AIS match can be a small boat, a platform, a wind turbine or a timing mismatch, and the data lags by days.')}</li>` : ''}
         ${is.n ? `<li>Of <b style="color:var(--ink)">${is.n}</b> logged incidents, <b style="color:var(--ink)">${is.soft}</b> ended dismissed, cleared, ruled an accident or inconclusive.</li>` : ''}
       </ul>
       ${precedent.length ? `<div class="sech">PRECEDENT</div><ul>${precedent.map((i) => `<li><b style="color:var(--ink)">${esc(i.vessel.name)}</b>: ${esc(i.outcome)}</li>`).join('')}</ul>` : ''}
@@ -622,7 +631,12 @@ function renderSources() {
   const rows = [];
   const live = (o) => o && o.ok;
   rows.push({ n: 'Digitraffic AIS', s: 'Fintraffic · keyless · N. Baltic', st: f.digitraffic ? (live(f.digitraffic) ? 'ok' : 'bad') : 'off', a: f.digitraffic ? `${fmt(f.digitraffic.count)} · ${ago(f.digitraffic.last)}` : 'pending' });
-  rows.push({ n: 'AISStream', s: 'global AIS · needs key', st: f.aisstream?.enabled ? (live(f.aisstream) ? 'ok' : 'bad') : 'off', a: f.aisstream?.enabled ? `${fmt(f.aisstream.count)} · ${ago(f.aisstream.last)}` : 'no key set' });
+  rows.push(f.aisstream?.enabled
+    ? { n: 'aisstream.io', s: f.aisstream.label || 'whole-Baltic AIS', st: live(f.aisstream) ? 'ok' : 'warn', a: [f.aisstream.count ? fmt(f.aisstream.count) : null, f.aisstream.last ? ago(f.aisstream.last) : null].filter(Boolean).join(' · ') || 'enabled' }
+    : { n: 'aisstream.io', s: 'whole-Baltic AIS · needs key', st: 'off', a: 'no key set' });
+  rows.push(state.sar
+    ? { n: 'Global Fishing Watch SAR', s: `radar vessel detections · ${state.sar.licence || 'CC BY-NC 4.0'}`, st: 'ok', a: (state.sar.dateRange || []).join(' → ') || ago(state.sar.generated) }
+    : { n: 'Global Fishing Watch SAR', s: 'radar vessel detections', st: 'off', a: 'token not set / pending' });
   rows.push({ n: 'Open-Meteo', s: 'wind & waves · context', st: f.weather ? (live(f.weather) ? 'ok' : 'warn') : 'off', a: f.weather ? ago(f.weather.last) : 'pending' });
   rows.push({ n: 'OpenSanctions', s: 'maritime watchlist', st: f.watchlist ? (live(f.watchlist) ? 'ok' : 'warn') : 'off', a: f.watchlist ? `${fmt(f.watchlist.count)} · ${f.watchlist.updated ? ago(f.watchlist.updated) : ''}` : 'pending' });
   rows.push({ n: 'Telecom cables', s: 'TeleGeography · public cable map', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'telecom').length)} lines` : 'not loaded' });
@@ -831,10 +845,31 @@ async function getJSON(url) {
 }
 
 let coastLoaded = false;
+function openBrief() {
+  let el = $('#brief');
+  if (!el) {
+    document.body.insertAdjacentHTML('beforeend', '<div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Daily brief"><div class="bf-box"><button class="bf-x" id="brief-x" aria-label="Close">✕</button><div id="brief-body"></div></div></div>');
+    el = $('#brief');
+  }
+  $('#brief-body').innerHTML = renderBrief(state.brief);
+  el.classList.add('on');
+}
+
+// Optional data published by GitHub Actions. Dev-only fixtures: ?sarsample / ?briefsample (never in a production build).
+async function loadOptional(name) {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has(`${name}sample`)) {
+    const m = name === 'sar' ? await import('../dev/sar.sample.json') : await import('../dev/brief.sample.json');
+    return m.default;
+  }
+  return getJSON(asset(`data/${name}.json`));
+}
+
 async function loadStatic() {
   if (!coastLoaded) getJSON(asset('geo/coast.json')).then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
   if (!state.landLoaded) getJSON(asset('geo/land.json')).then((l) => { if (l) { state.landLoaded = true; globe.setLand(l); } });
-  const [infra, incidents, grid] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json'))]);
+  const [infra, incidents, grid, sar, brief] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json')), loadOptional('sar'), loadOptional('brief')]);
+  if (sar?.unmatchedCells) { state.sar = sar; flat.setSar(sar.unmatchedCells); renderLegend(); renderSources(); renderShouldnt(); }
+  if (brief?.generated) state.brief = brief;
   if (infra && infra.features) {
     state.infra = infra;
     globe.setInfra(infra);
@@ -1096,9 +1131,15 @@ if (params.has('nohero')) {
   document.body.classList.add('hero-on');
   document.body.classList.add('view-globe');
   // hero typography shows at once over a CSS globe; Cesium fades in when it has loaded
-  loadGlobe().then(() => { if (!document.body.classList.contains('hero-on')) return; globe.heroStart(); resize3d(); buildRing(); document.body.classList.add('globe-ready'); });
+  // reduced motion: keep the static CSS globe, skip the 3D engine entirely
+  if (!REDUCED) loadGlobe().then(() => { if (!document.body.classList.contains('hero-on')) return; globe.heroStart(); resize3d(); buildRing();
+    // keep the CSS placeholder until the globe's tiles have actually drawn (max 4 s)
+    const t0 = performance.now();
+    const ready = () => (globe3d.viewer.scene.globe.tilesLoaded || performance.now() - t0 > 4000 ? document.body.classList.add('globe-ready') : setTimeout(ready, 120));
+    setTimeout(ready, 200);
+  });
   setTimeout(buildRing, 30);
-  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
+  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline, .hero-how')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
   if (!HOLD) setTimeout(exitHero, 5200);
 }
@@ -1144,6 +1185,8 @@ globe.on('hover', (id, pos) => {
     const i = state.incidents.find((x) => x.id === id.id);
     if (!i) return;
     html = `${esc(i.title)}<small>${esc(i.date)} · ${esc(i.outcomeStatus || '')} · approx. location</small>`;
+  } else if (id.kind === 'sar') {
+    html = `${fmt(id.n)} radar detection${id.n === 1 ? '' : 's'} not matched to AIS<small>last ${esc(id.last || '?')} · ${state.sar?.lagDays ?? 5}-day data lag · Global Fishing Watch</small>`;
   } else if (id.kind === 'glider') {
     html = `GLIDER ${pad(id.i + 1, 3)} (SIM)<small>R ${state.glider.R} km · racetrack patrol</small>`;
   }
@@ -1203,13 +1246,15 @@ document.addEventListener('click', (e) => {
   if (lg) { toggleLayer(lg.dataset.k); return; }
   if (t.closest('[data-close]')) { closeDossier(); state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null); return; }
   if (t.closest('#b-signals')) { $('#modal').classList.add('on'); return; }
+  if (t.closest('#b-brief')) { openBrief(); return; }
+  if (t.closest('#brief-x') || t.id === 'brief') { $('#brief').classList.remove('on'); return; }
   if (t.closest('#modal-x') || t.id === 'modal') { $('#modal').classList.remove('on'); return; }
   const st = t.closest('#stabs button');
   if (st) { setSheetTab(st.dataset.t, true); return; }
   if (t.closest('#grab')) { $('#sheet').classList.toggle('min'); return; }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { $('#modal').classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
+  if (e.key === 'Escape') { $('#modal').classList.remove('on'); $('#brief')?.classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
 });
 
 // ---------------------------------------------------------------- tooltips for [data-tip]

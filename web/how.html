@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>How it works · Baltic Seabed Watch</title>
+  <meta name="description" content="How Baltic Seabed Watch fuses public AIS, sanctions lists and seabed infrastructure into explainable signals, and what it cannot see." />
+  <meta name="theme-color" content="#05080b" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="How it works · Baltic Seabed Watch" />
+  <meta property="og:description" content="Seven explainable signals over public data, an honest list of what they can't prove, and why the gap is underwater." />
+  <meta property="og:image" content="%VITE_SITE_URL%og.png" />
+  <meta property="og:url" content="%VITE_SITE_URL%how.html" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How it works · Baltic Seabed Watch" />
+  <meta name="twitter:description" content="Seven explainable signals over public data, and what they can't prove." />
+  <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body class="how">
+  <header class="h-top">
+    <a class="h-brand" href="./">BALTIC <b>SEABED</b> WATCH</a>
+    <nav><a href="#architecture">Architecture</a><a href="#signals">Signals</a><a href="#limits">Limits</a><a href="#brief">Brief</a><a class="h-open" href="./"><span class="h-full">Open the live map</span><span class="h-short">Live map</span> →</a></nav>
+  </header>
+
+  <main>
+    <section class="h-hero">
+      <div class="h-k">HOW IT WORKS</div>
+      <h1>Watching the seabed<br />from the surface.</h1>
+      <p class="h-lede">Baltic Seabed Watch is a live map of the ships moving over the Baltic's undersea cables and pipelines. It fuses public ship tracking, sanctions lists and infrastructure routes into a small set of explainable signals. Every flag carries the reasons it is probably innocent, because surface data alone has never settled one of these cases. The last layer shows what listening below the surface would add.</p>
+    </section>
+
+    <section class="h-sec" id="architecture">
+      <div class="h-num">01</div>
+      <div class="h-body">
+        <h2>Architecture</h2>
+        <p>One engine, written once, runs in the browser (or on a server). Public sources feed it; GitHub Actions keeps the slow-moving data fresh. There is no private data and no API key in the page.</p>
+        <figure class="h-fig" aria-label="Architecture diagram: sources feed the engine, the engine feeds the browser UI, GitHub Actions publishes history, brief and radar files.">
+          <svg viewBox="0 0 960 470" role="img">
+            <defs>
+              <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrow" /></marker>
+            </defs>
+            <text x="20" y="24" class="d-k">SOURCES (PUBLIC)</text>
+            <g class="d-src">
+              <rect x="20" y="40" width="290" height="34" rx="3" /><text x="34" y="62">Digitraffic AIS · live, keyless</text>
+              <rect x="20" y="82" width="290" height="34" rx="3" /><text x="34" y="104">aisstream.io · 15-min snapshots</text>
+              <rect x="20" y="124" width="290" height="34" rx="3" /><text x="34" y="146">TeleGeography · telecom cables</text>
+              <rect x="20" y="166" width="290" height="34" rx="3" /><text x="34" y="188">EMODnet · pipelines, power, ports</text>
+              <rect x="20" y="208" width="290" height="34" rx="3" /><text x="34" y="230">EMODnet Bathymetry · depth</text>
+              <rect x="20" y="250" width="290" height="34" rx="3" /><text x="34" y="272">OpenSanctions · listed vessels</text>
+              <rect x="20" y="292" width="290" height="34" rx="3" /><text x="34" y="314">Open-Meteo · wind and waves</text>
+              <rect x="20" y="334" width="290" height="34" rx="3" /><text x="34" y="356">Global Fishing Watch · SAR radar</text>
+            </g>
+            <text x="360" y="24" class="d-k">ENGINE</text>
+            <g class="d-eng">
+              <rect x="360" y="40" width="270" height="328" rx="4" />
+              <text x="378" y="74" class="d-t">Corridor index</text><text x="378" y="94" class="d-s">1.5 nm around every line</text>
+              <line x1="378" y1="112" x2="612" y2="112" />
+              <text x="378" y="140" class="d-t">7 rules</text><text x="378" y="160" class="d-s">behaviour + identity signals</text>
+              <line x1="378" y1="178" x2="612" y2="178" />
+              <text x="378" y="206" class="d-t">Context checks</text><text x="378" y="226" class="d-s">weather · ports · type · orders</text>
+              <line x1="378" y1="244" x2="612" y2="244" />
+              <text x="378" y="272" class="d-t">Levels</text><text x="378" y="292" class="d-s">WATCH · ELEVATED · HIGH</text>
+              <line x1="378" y1="310" x2="612" y2="310" />
+              <text x="378" y="340" class="d-s">same code in browser or server</text>
+            </g>
+            <text x="670" y="24" class="d-k">BROWSER</text>
+            <g class="d-ui">
+              <rect x="670" y="40" width="270" height="34" rx="3" /><text x="684" y="62">Flat map · live ships</text>
+              <rect x="670" y="82" width="270" height="34" rx="3" /><text x="684" y="104">Alert stream</text>
+              <rect x="670" y="124" width="270" height="34" rx="3" /><text x="684" y="146">"What you shouldn't conclude"</text>
+              <rect x="670" y="166" width="270" height="34" rx="3" /><text x="684" y="188">Glider coverage (simulation)</text>
+              <rect x="670" y="208" width="270" height="34" rx="3" /><text x="684" y="230">Daily brief</text>
+            </g>
+            <g class="d-gha">
+              <rect x="670" y="290" width="270" height="78" rx="3" />
+              <text x="684" y="314" class="d-t">GitHub Actions</text>
+              <text x="684" y="334" class="d-s">history.json · every 15 min</text>
+              <text x="684" y="352" class="d-s">brief.json · sar.json · daily</text>
+            </g>
+            <path d="M310,204 C330,204 340,204 358,204" class="d-flow" marker-end="url(#ar)" />
+            <path d="M630,140 C650,140 650,124 668,124" class="d-flow" marker-end="url(#ar)" />
+            <path d="M805,288 C805,270 805,262 805,244" class="d-flow d-dash" marker-end="url(#ar)" />
+            <path d="M670,330 C520,420 330,420 300,370" class="d-flow d-dash" />
+            <text x="410" y="430" class="d-s">Actions sample the same public sources on a schedule</text>
+          </svg>
+        </figure>
+      </div>
+    </section>
+
+    <section class="h-sec" id="signals">
+      <div class="h-num">02</div>
+      <div class="h-body">
+        <h2>Seven signals, each with its excuse</h2>
+        <p>Every rule is plain code with a threshold you can read. Each one ships with the ordinary reasons it fires, and those reasons are shown next to every alert.</p>
+        <div class="h-sigs">
+          <article><h3>LOITER <span>behaviour · weak alone</span></h3><p class="r">Under 3 kn for 20+ minutes within 1.5 nm of a cable or pipeline, outside port zones, not moored.</p><p class="i">Innocent causes: waiting for a berth, a pilot or orders; weather; fishing and work vessels.</p></article>
+          <article><h3>DRAG <span>behaviour · moderate alone</span></h3><p class="r">A run of consecutive fixes at 1–7 kn, at most 60% of the ship's own usual speed (8 kn+), still "under way", covering 2 km and 10 minutes along a corridor.</p><p class="i">Innocent causes: engine trouble, ice, traffic separation, slowing for a pilot.</p></article>
+          <article><h3>CROSS-SLOW <span>behaviour · weak alone</span></h3><p class="r">Passing within 0.3 nm of a named asset at under half the ship's usual speed (6 kn+).</p><p class="i">Innocent causes: busy lanes and approaches cross cables constantly.</p></article>
+          <article><h3>DARK <span>behaviour · moderate alone</span></h3><p class="r">No AIS for 45 minutes to 6 hours, last seen moving within 10 nm of infrastructure, while 5+ nearby ships kept reporting.</p><p class="i">Innocent causes: receiver gaps, transponder faults, message rate limits.</p></article>
+          <article><h3>WATCHLIST <span>identity</span></h3><p class="r">IMO or MMSI on OpenSanctions maritime lists (sanctions, shadow-fleet tracking, port-state detentions).</p><p class="i">A listing describes ownership or past conduct, not what the ship is doing now.</p></article>
+          <article><h3>FOC <span>identity · weak</span></h3><p class="r">Flag (from the MMSI) in a registry repeatedly named in shadow-fleet reporting.</p><p class="i">Thousands of ordinary ships fly these flags.</p></article>
+          <article><h3>PROFILE <span>identity</span></h3><p class="r">A tanker or cargo ship tracked leaving a Russian Gulf of Finland port in the last 6 hours, now loitering or dragging. Inbound ships never qualify.</p><p class="i">Most such ships are simply trading.</p></article>
+          <article class="h-lv"><h3>LEVELS <span>how signals combine</span></h3><p class="r"><b class="w">WATCH</b> one behaviour signal<br /><b class="e">ELEVATED</b> behaviour + one more<br /><b class="h">HIGH</b> three, incl. DRAG or DARK</p><p class="i">Explained signals don't count. Identity alone never escalates.</p></article>
+        </div>
+        <div class="h-esc">
+          <div><b>WATCH</b> one unexplained behaviour signal, or a listed vessel inside a corridor.</div>
+          <div><b>ELEVATED</b> behaviour plus at least one more unexplained signal.</div>
+          <div><b>HIGH</b> three or more, including DRAG or DARK.</div>
+          <p>Identity signals never escalate an alert on their own. Context checks (gale ≥ 30 kn or waves ≥ 3 m, work and passenger vessels, "waiting for orders", port zones) mark a signal as explained, and explained signals don't count.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="h-sec" id="eval">
+      <div class="h-num">03</div>
+      <div class="h-body">
+        <h2>How it's tested</h2>
+        <p><b>6 synthetic cases</b> built along real cable geometry (a drag modelled on published Eagle S descriptions, anchoring on a cable, ordinary transit, a trawler, a gale, a port wait) and <b>6 regression checks</b> for bugs found in review (unavailable speed, a single slow fix, inbound ships, wide-radius gaps, expired alerts, restart replay). All pass on every push.</p>
+        <p class="h-honest">What's not measured yet: the false-positive rate on real traffic. That needs 48 hours of recorded AIS and 30–40 episodes labelled by hand, not by a model. Until then, treat every threshold as a starting point.</p>
+      </div>
+    </section>
+
+    <section class="h-sec" id="limits">
+      <div class="h-num">04</div>
+      <div class="h-body">
+        <h2>What this can't see</h2>
+        <ul class="h-list">
+          <li><b>AIS is self-reported.</b> It can be spoofed, switched off or simply not received.</li>
+          <li><b>Coverage is uneven.</b> Northern Baltic live (Digitraffic); whole Baltic every 15 min when aisstream is enabled.</li>
+          <li><b>Satellite radar helps, slowly.</b> Global Fishing Watch detections lag by days and also see small boats, rigs and turbines.</li>
+          <li><b>Nothing below the surface.</b> No sensor here hears an anchor on the seabed, a diver or a submersible.</li>
+        </ul>
+        <p class="h-big">That last gap is the point. The glider layer simulates how a few hundred autonomous underwater gliders, tasked by one operator, would cover the corridors that surface data can only guess at. It is a simulation with stated assumptions, not a claim about anyone's system.</p>
+      </div>
+    </section>
+
+    <section class="h-sec" id="incidents">
+      <div class="h-num">05</div>
+      <div class="h-body">
+        <h2>Incidents, and how they ended</h2>
+        <p>Every case with sources for each field. Most did not end in a finding, which is exactly why a stronger picture is needed.</p>
+        <div class="h-inc" id="h-inc"><p class="h-dim">Loading…</p></div>
+        <p><a class="h-link" href="./?nohero">Open them on the map →</a></p>
+      </div>
+    </section>
+
+    <section class="h-sec" id="brief">
+      <div class="h-num">06</div>
+      <div class="h-body">
+        <h2>Latest brief</h2>
+        <div class="h-brief" id="h-brief"><p class="h-dim">Loading…</p></div>
+      </div>
+    </section>
+
+    <section class="h-sec h-credits">
+      <div class="h-num">07</div>
+      <div class="h-body">
+        <h2>Credits and licences</h2>
+        <ul class="h-list small">
+          <li>AIS: Fintraffic Digitraffic (CC BY 4.0); aisstream.io (terms of service).</li>
+          <li>Sanctions and shadow-fleet lists: OpenSanctions (CC BY-NC 4.0, non-commercial use).</li>
+          <li>Telecom cables: TeleGeography Submarine Cable Map. Pipelines, power cables, ports and bathymetry: EMODnet.</li>
+          <li>Satellite radar detections: Global Fishing Watch (CC BY-NC 4.0). Weather: Open-Meteo. Coastlines: Natural Earth.</li>
+          <li>Independent project. Public data only. Not affiliated with or endorsed by Helsing or any company named here.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="h-foot">Made by Ravjoth Brar - <a href="https://ravjothbrar.com" target="_blank" rel="noopener">ravjothbrar.com</a></footer>
+  <script type="module" src="/src/how.js"></script>
+</body>
+</html>

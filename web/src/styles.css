@@ -902,3 +902,53 @@ body.hero-on.globe-ready #globe .cesium-widget { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+/* ── radar (SAR) layer icons ─────────────────────────────────────────── */
+.layer .ic.sq, .lg i.sq { width: 9px; height: 9px; border-radius: 0; background: transparent; border: 1.5px solid currentColor; box-shadow: none; }
+
+/* ── top-bar / hero links ───────────────────────────────────────────── */
+a.chip.btn { text-decoration: none; display: inline-flex; align-items: center; }
+#b-brief { color: var(--ink); border-color: var(--line-3); }
+.hero-how { display: inline-flex; align-items: center; padding: 0 18px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em; color: rgba(255,255,255,.75); border: 1px solid rgba(255,255,255,.18); text-decoration: none; transition: color .2s, border-color .2s; }
+.hero-how:hover { color: #fff; border-color: rgba(255,255,255,.5); text-decoration: none; }
+
+/* ── daily brief overlay ─────────────────────────────────────────────── */
+.brief { position: fixed; inset: 0; z-index: 90; display: none; align-items: flex-start; justify-content: center; padding: 6vh 16px; overflow-y: auto; background: rgba(4, 9, 13, 0.82); backdrop-filter: blur(6px); }
+.brief.on { display: flex; }
+.bf-box { position: relative; width: min(760px, 100%); background: #0b141a; border: 1px solid var(--line-2); border-radius: 6px; padding: 36px 40px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.bf-x { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--ink-2); font-size: 14px; }
+.bf-x:hover { color: var(--ink); border-color: var(--line-3); }
+.bf-k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--ink-3); text-transform: uppercase; }
+.bf-head h2 { font-family: Inter, system-ui, sans-serif; font-weight: 300; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; color: #f2f7f8; margin: 10px 0 6px; line-height: 1.1; }
+.bf-sub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.06em; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.bf-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 20px 0 24px; }
+.bf-nums > div { background: #0b141a; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.bf-nums span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--ink-3); }
+.bf-nums b { font-family: var(--mono); font-size: 30px; font-weight: 400; color: #eafffa; font-variant-numeric: tabular-nums; }
+.bf-nums b.mag { color: var(--magenta); } .bf-nums b.amb { color: var(--amber); }
+.bf-nums small { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.bf-spark { margin-top: 4px; } .bf-nospark { font-family: var(--mono); font-size: 11px; color: var(--ink-4, #6b8088); margin-top: 6px; }
+.bf-sec { margin-bottom: 8px; }
+.bf-list { list-style: none; margin: 0 0 18px; padding: 0; border-top: 1px solid var(--line); }
+.bf-item { display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.bf-n { font-family: var(--mono); font-size: 12px; color: var(--ink-3); padding-top: 3px; }
+.bf-t { font-size: 14px; color: var(--ink); line-height: 1.5; } .bf-t b { font-weight: 600; margin-right: 4px; }
+.bf-dim { color: var(--ink-3); font-size: 12.5px; }
+.bf-sigs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.bf-sig { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--amber); border: 1px solid rgba(255,181,71,.4); border-radius: 3px; padding: 2px 6px; }
+.bf-sig.x { color: var(--ink-3); border-color: var(--line-2); text-decoration: line-through; text-decoration-color: rgba(159,179,187,.5); }
+.bf-cav { font-size: 12.5px; color: var(--ink-2); margin-top: 7px; line-height: 1.5; }
+.bf-sar { border: 1px solid rgba(255,181,71,.3); border-radius: 4px; padding: 12px 14px; margin-bottom: 16px; }
+.bf-sar p { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; line-height: 1.55; } .bf-sar b { color: var(--amber); font-weight: 600; }
+.bf-notes { margin: 0 0 16px; padding-left: 18px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+.bf-foot { font-size: 12px; color: var(--ink-3); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 14px; }
+.bf-empty { padding: 20px 4px; } .bf-empty p { font-size: 15px; color: var(--ink); margin: 10px 0 0; line-height: 1.6; } .bf-empty p.bf-dim { font-size: 13px; color: var(--ink-3); }
+@media (max-width: 640px) { .bf-box { padding: 26px 18px 20px; } .bf-nums { grid-template-columns: 1fr; } }
+/* the surface/subsurface readout sits top-right, clear of the legend (which can wrap to two lines) */
+.hud.br { top: 58px; bottom: auto; }
+@media (max-width: 900px) { .hud.br { display: none; } }
+#b-brief { gap: 7px; } #b-brief .bb-ic { width: 14px; height: 14px; flex: none; }
+@media (max-width: 900px) { #b-brief .bb-t { display: none; } #b-brief { padding-left: 8px; padding-right: 8px; } }
+#b-brief { display: inline-flex; align-items: center; }
+@media (max-width: 900px) { #b-how { display: none; } }
+@media (max-width: 430px) { .topbar .brand-name { letter-spacing: 0.1em; font-size: 11px; } .topbar .status-pill { padding-left: 8px; padding-right: 8px; letter-spacing: 0.08em; font-size: 11px; gap: 6px; } .topbar { gap: 6px; } }

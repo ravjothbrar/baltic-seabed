@@ -1,0 +1,22 @@
+{
+  "_SAMPLE": "DEV FIXTURE ONLY: made-up numbers to test the brief layout. Never shipped (loaded only in the Vite dev server with ?briefsample).",
+  "generated": "2026-11-12T06:05:00Z",
+  "windowHours": 6,
+  "stats": { "vessels": 812, "listed": 71, "alerts": { "WATCH": 14, "ELEVATED": 4, "HIGH": 0 }, "signals": { "LOITER": 11, "DRAG": 0, "CROSS_SLOW": 1, "DARK": 3, "WATCHLIST": 12, "FOC": 4, "PROFILE": 1 } },
+  "top": [
+    { "name": "SAMPLE TANKER A", "mmsi": 100000001, "imo": 1000001, "flag": "Sample Flag", "typeLabel": "Tanker", "level": "ELEVATED", "asset": "SAMPLE CABLE 1",
+      "signals": [ { "id": "LOITER", "label": "Loitering on infrastructure", "strength": "moderate", "evidence": "sample evidence", "explained": false }, { "id": "WATCHLIST", "label": "Listed vessel", "strength": "moderate", "evidence": "sample", "explained": false } ],
+      "caveat": "Sample caveat: tankers wait for orders in the open Gulf." },
+    { "name": "SAMPLE CARGO B", "mmsi": 100000002, "imo": null, "flag": "Sample Flag", "typeLabel": "Cargo", "level": "WATCH", "asset": "SAMPLE PIPELINE",
+      "signals": [ { "id": "LOITER", "label": "Loitering on infrastructure", "strength": "weak", "evidence": "sample", "explained": true, "explainedBy": "gale" } ],
+      "caveat": "Sample caveat: 30 kn wind in the area." }
+  ],
+  "sar": { "detections": 1234, "unmatched": 87, "windowDays": 30, "generated": "2026-11-12T05:00:00Z" },
+  "notes": ["Sample note: Digitraffic covers the northern Baltic only."],
+  "history": [
+    { "date": "2026-11-05", "vessels": 790, "listed": 66, "alerts": 15 }, { "date": "2026-11-06", "vessels": 801, "listed": 69, "alerts": 19 },
+    { "date": "2026-11-07", "vessels": 776, "listed": 70, "alerts": 12 }, { "date": "2026-11-08", "vessels": 820, "listed": 72, "alerts": 21 },
+    { "date": "2026-11-09", "vessels": 805, "listed": 68, "alerts": 17 }, { "date": "2026-11-10", "vessels": 798, "listed": 71, "alerts": 16 },
+    { "date": "2026-11-11", "vessels": 812, "listed": 71, "alerts": 18 }
+  ]
+}

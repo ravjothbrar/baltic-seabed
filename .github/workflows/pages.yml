@@ -38,6 +38,7 @@ jobs:
         run: npm --prefix web run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          VITE_SITE_URL: ${{ steps.pages.outputs.base_url }}/
       - name: Extend track history (Digitraffic + aisstream.io if AISSTREAM_API_KEY is set)
         run: node --no-warnings scripts/build-history.mjs web/dist/data/history.json
         env:
