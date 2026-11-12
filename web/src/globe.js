@@ -538,24 +538,30 @@ export function createGlobe(container) {
     look(lon, lat, range, -55, duration);
   }
   let spinning = false;
+  // The Baltic box the flat map opens on. The swoop ends on exactly this framing (top-down) so the cross-fade
+  // into the flat map reads as one continuous zoom.
+  const BALTIC_RECT = Cesium.Rectangle.fromDegrees(9.3, 53.6, 30.6, 66.0);
   function heroStart() {
-    // whole-earth view, Baltic slightly above centre, slow spin
-    viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(10, 44, 17500000) });
-    // offset the globe from the headline: right on desktop, up on portrait phones
+    // Baltic-centred hemisphere from the first frame. On desktop the globe sits right of the headline; on
+    // portrait phones it sits above it. Only a very slow drift, which keeps the Baltic in view.
     const portrait = scene.canvas.clientHeight > scene.canvas.clientWidth;
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(20.5, 58.2, portrait ? 17500000 : 15000000),
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+    });
+    // shift the disc beside the headline (right on desktop, up on phones); the Baltic stays at its centre
     if (portrait) viewer.camera.lookDown(Cesium.Math.toRadians(11.5));
     else viewer.camera.lookLeft(Cesium.Math.toRadians(9.2));
     spinning = true;
   }
-  function heroEnd(onDone) {
+  function heroEnd(onDone, { duration = 1.6 } = {}) {
     spinning = false;
-    const r = REGIONS.BALTIC;
-    const f = aspectFactor();
-    const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(r.lon, r.lat - (f > 1 ? 1.2 : 0), 0), 1);
-    viewer.camera.flyToBoundingSphere(sphere, {
-      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(r.pitch), r.range * f),
-      duration: 4.2,
-      easingFunction: Cesium.EasingFunction.QUINTIC_IN_OUT,
+    viewer.camera.flyTo({
+      destination: BALTIC_RECT,
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+      duration,
+      easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
+      maximumHeight: undefined,
       complete: onDone,
     });
   }
@@ -578,7 +584,7 @@ export function createGlobe(container) {
   let lastDeclutter = 0;
   scene.preRender.addEventListener(() => {
     const t = (performance.now() - t0) / 1000;
-    if (spinning) viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0009);
+    if (spinning) viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.00012); // gentle drift, Baltic stays in view
     // alert pulses
     const ph = (t % 1.6) / 1.6;
     for (let i = 0; i < pulsePoints.length; i++) {

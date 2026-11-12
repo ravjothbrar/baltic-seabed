@@ -1019,7 +1019,8 @@ function setViewMode(m, { fly = true } = {}) {
   viewMode = m;
   document.body.classList.toggle('view-flat', m === 'flat');
   document.body.classList.toggle('view-globe', m === 'globe');
-  globe3d.viewer.useDefaultRenderLoop = m === 'globe' || document.body.classList.contains('hero-on');
+  if (m === 'globe') globe3d.viewer.useDefaultRenderLoop = true;
+  else setTimeout(() => { if (viewMode === 'flat') globe3d.viewer.useDefaultRenderLoop = false; }, 800); // after the cross-fade
   $('#b-mode').textContent = m === 'flat' ? '3D GLOBE' : '2D MAP';
   if (m === 'flat') { flat.resize(); if (fly) flat.flyRegion(state.region || 'BALTIC', 0); }
   else { globe3d.viewer.resize(); if (fly) globe3d.flyRegion(state.region || 'BALTIC', 1.2); }
@@ -1049,9 +1050,9 @@ function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
+  globe.viewer.resize(); flat.resize(); buildRing(); // size the frame first so the swoop targets the final layout
   globe.heroEnd(() => { introDone = true; setViewMode('flat'); maybeOfferTour(); });
-  setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1600);
+  setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1900);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
 }
 if (params.has('nohero')) {

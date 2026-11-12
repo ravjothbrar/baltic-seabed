@@ -136,7 +136,8 @@ export function createFlatMap(container) {
         seen.add(p.name);
         const longest = parts.reduce((a, b) => (b.length > a.length ? b : a));
         const mid = longest[Math.floor(longest.length / 2)];
-        infraLabels.push({ text: p.name, lon: mid[0], lat: mid[1], cls: 'fl-cable fl-' + kind, size: 11, minK: 2.4, maxK: 99, pri: 40, kind, dx: 8, anchor: 'start' });
+        const [lx, ly] = P(mid[0], mid[1]);
+        infraLabels.push({ text: p.name, lon: mid[0], lat: mid[1], x: lx, y: ly, cls: 'fl-cable fl-' + kind, size: 11, minK: 2.4, maxK: 99, pri: 40, kind, dx: 8, anchor: 'start' });
       }
     }
     // draw order: unnamed first, named on top
@@ -221,6 +222,7 @@ export function createFlatMap(container) {
     for (const l of all) {
       if (k < l.minK || k > l.maxK) continue;
       const sx = T.applyX(l.x), sy = T.applyY(l.y);
+      if (!Number.isFinite(sx) || !Number.isFinite(sy)) continue;
       if (sx < -50 || sy < -20 || sx > W + 50 || sy > H + 20) continue;
       cand.push({ l, sx, sy });
     }
