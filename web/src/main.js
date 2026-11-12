@@ -2,6 +2,7 @@ import { asset } from './base.js';
 import { createDataSource } from './datasource.js';
 import './styles.css';
 import { createGlobe, REGIONS, kmBetween } from './globe.js';
+import { createFlatMap } from './flatmap.js';
 import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
 const ds = createDataSource();
@@ -102,6 +103,8 @@ document.querySelector('#app').innerHTML = `
     <nav class="tabs" id="regions"></nav>
     <div class="frame" id="frame">
       <div id="globe"></div>
+      <div id="flat"></div>
+      <div class="mapctl" id="mapctl"><button id="z-in" title="Zoom in" aria-label="Zoom in">+</button><button id="z-out" title="Zoom out" aria-label="Zoom out">−</button><button id="b-mode" class="mode" title="Switch between flat map and 3D globe">3D GLOBE</button></div>
       <div class="ov ov-grid"></div>
       <div class="radar"></div>
       <div class="ov ov-sweep"></div>
@@ -168,10 +171,9 @@ document.querySelector('#app').innerHTML = `
   </section>
 
   <footer class="foot">
-    <span>Independent project by <a class="foot-link" href="https://ravjothbrar.com" target="_blank" rel="noopener">Ravjoth Brar</a> · public data · not affiliated with Helsing</span>
+    <span class="foot-made">Made by Ravjoth Brar - <a class="foot-link" href="https://ravjothbrar.com" target="_blank" rel="noopener">ravjothbrar.com</a></span>
     <span class="sp"></span>
-    <span>AIS IS SELF-REPORTED · NOTHING HERE IS EVIDENCE OF INTENT</span>
-    <span>NATURAL EARTH · EMODNET · TELEGEOGRAPHY · OPENSANCTIONS · DIGITRAFFIC</span>
+    <span class="foot-src">AIS is self-reported · nothing here is evidence of intent · Data: Digitraffic · EMODnet · TeleGeography · OpenSanctions · Natural Earth</span>
   </footer>
 
   <div class="sheet min" id="sheet">
@@ -430,7 +432,7 @@ function setPreset(p) {
   document.body.classList.remove('p-sonar', 'p-nvg', 'p-clean');
   if (p !== 'NORMAL') document.body.classList.add(`p-${p.toLowerCase()}`);
   renderPresets();
-  setTimeout(() => globe.viewer.resize(), 50);
+  setTimeout(() => { globe.viewer.resize(); flat.resize(); }, 50);
   if (p === 'CLEAN') showToastPreset();
 }
 function showToastPreset() {
@@ -625,13 +627,23 @@ function renderSources() {
   rows.push({ n: 'OpenSanctions', s: 'maritime watchlist', st: f.watchlist ? (live(f.watchlist) ? 'ok' : 'warn') : 'off', a: f.watchlist ? `${fmt(f.watchlist.count)} · ${f.watchlist.updated ? ago(f.watchlist.updated) : ''}` : 'pending' });
   rows.push({ n: 'Telecom cables', s: 'TeleGeography · public cable map', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'telecom').length)} lines` : 'not loaded' });
   rows.push({ n: 'Pipelines', s: 'EMODnet Human Activities', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'pipeline').length)} lines` : 'not loaded' });
-  rows.push({ n: 'Power cables', s: 'EMODnet · German waters only', gap: 'GAP: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'power').length)} lines` : 'not loaded' });
-  rows.push({ n: 'Bathymetry', s: 'glider depth mask', gap: 'GAP: depth not modelled', st: 'off', a: 'not used' });
+  const power = state.infra ? state.infra.features.filter((x) => x.properties?.kind === 'power') : [];
+  const osmPower = power.some((x) => x.properties?.source === 'OpenStreetMap');
+  rows.push(osmPower
+    ? { n: 'Power cables', s: 'EMODnet + OpenStreetMap', st: 'ok', a: `${fmt(power.length)} lines` }
+    : { n: 'Power cables', s: 'EMODnet · German waters only', gap: 'Gap: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(power.length)} lines` : 'not loaded' });
+  const depthOn = !!state.grid?.cells?.some((c) => c[4] !== 1);
+  rows.push(depthOn
+    ? { n: 'Bathymetry', s: 'EMODnet bathymetry · depth mask on', st: 'ok', a: 'glider layer' }
+    : { n: 'Bathymetry', s: 'glider depth mask', gap: 'Gap: depth not modelled', st: 'off', a: 'not used' });
   rows.push({ n: 'Incident log', s: 'hand-curated · every row cited', st: state.incidents.length ? 'ok' : 'off', a: state.incidents.length ? `${state.incidents.length} rows` : 'pending' });
-  rows.push({ n: 'Live stream', s: 'SSE · this server', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'connected' : 'offline' });
+  rows.push(ds.mode === 'browser'
+    ? { n: 'Live engine', s: 'runs in this browser tab', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'running' : 'offline' }
+    : { n: 'Live stream', s: 'SSE · this server', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'connected' : 'offline' });
   const ok = rows.filter((r) => r.st === 'ok').length;
   $('#t-src').textContent = `${ok}/${rows.length} OK`;
-  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small>${r.gap ? `<small class="gap">${r.gap}</small>` : ''}</span><span class="a">${r.a}</span></div>`).join('');
+  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small>${r.gap ? `<small class="gap">${r.gap}</small>` : ''}</span><span class="a">${r.a}</span></div>`).join('')
+    + '<p class="src-note">Independent project · public data only · not affiliated with or endorsed by Helsing.</p>';
 }
 
 function renderTop() {
@@ -835,9 +847,9 @@ async function loadStatic() {
   }
   if (grid && grid.cells) {
     state.grid = grid;
-    const allOk = grid.cells.every((c) => c[4] !== 0);
+    const depthOn = grid.cells.some((c) => c[4] !== 1);
     const gd = $('#g-depth');
-    if (gd) gd.textContent = allOk ? 'Depth not modelled (no bathymetry mask in this build).' : 'Shallow cells (<25 m) are down-weighted.';
+    if (gd) gd.textContent = depthOn ? 'Depth mask on (EMODnet bathymetry): shallow cells are down-weighted.' : 'Depth not modelled (no bathymetry mask in this build).';
   }
   if (state.infra) {
     let km = 0;
@@ -975,7 +987,7 @@ function layoutForViewport() {
     panels.sort((a, b) => order.indexOf($('.t', a).textContent) - order.indexOf($('.t', b).textContent));
     panels.forEach((p) => { p.hidden = false; if (p.dataset.home) homes[p.dataset.home].appendChild(p); });
   }
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 60);
+  setTimeout(() => { globe.viewer.resize(); flat.resize(); buildRing(); }, 60);
 }
 function setSheetTab(t, expand) {
   sheetTab = t;
@@ -985,8 +997,36 @@ function setSheetTab(t, expand) {
 }
 
 // ---------------------------------------------------------------- globe + events
-const globe = createGlobe($('#globe'));
-window.__bsw = { globe, state }; // debug handle
+// Two views of the same data: the flat d3 map (default dashboard view) and the Cesium globe (intro + GLOBE mode).
+// Data setters go to both; camera, picking and counting go to whichever is active.
+const globe3d = createGlobe($('#globe'));
+const flat = createFlatMap($('#flat'));
+let viewMode = 'globe'; // 'globe' during the intro, then 'flat'
+const activeView = () => (viewMode === 'flat' ? flat : globe3d);
+const BOTH = ['setInfra', 'setCoast', 'setLand', 'setIncidents', 'upsertVessels', 'removeVessels', 'setFocus', 'setGliders', 'setLayer', 'showTrack', 'clearTrack', 'setReserved'];
+const globe = {
+  viewer: globe3d.viewer,
+  heroStart: () => globe3d.heroStart(),
+  heroEnd: (cb) => globe3d.heroEnd(cb),
+  flyRegion: (...a) => activeView().flyRegion(...a),
+  flyPoint: (...a) => activeView().flyPoint(...a),
+  countInView: () => activeView().countInView(),
+  setTasking: (a) => { const r = flat.setTasking(a); globe3d.setTasking(viewMode === 'globe' ? a : null); return r; },
+  on: (ev, f) => { flat.on(ev, (...a) => viewMode === 'flat' && f(...a)); globe3d.on(ev, (...a) => viewMode === 'globe' && f(...a)); },
+};
+for (const k of BOTH) globe[k] = (...a) => { flat[k](...a); return globe3d[k](...a); };
+function setViewMode(m, { fly = true } = {}) {
+  viewMode = m;
+  document.body.classList.toggle('view-flat', m === 'flat');
+  document.body.classList.toggle('view-globe', m === 'globe');
+  globe3d.viewer.useDefaultRenderLoop = m === 'globe' || document.body.classList.contains('hero-on');
+  $('#b-mode').textContent = m === 'flat' ? '3D GLOBE' : '2D MAP';
+  if (m === 'flat') { flat.resize(); if (fly) flat.flyRegion(state.region || 'BALTIC', 0); }
+  else { globe3d.viewer.resize(); if (fly) globe3d.flyRegion(state.region || 'BALTIC', 1.2); }
+  if (state.selectedAlert) { const a = state.alerts.get(state.selectedAlert); globe.setTasking(a || null); }
+  buildRing();
+}
+window.__bsw = { globe: globe3d, flat, state, setViewMode }; // debug handle
 
 buildRing();
 renderRegions();
@@ -1010,17 +1050,19 @@ function exitHero() {
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
   setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
-  globe.heroEnd(() => { introDone = true; maybeOfferTour(); });
+  globe.heroEnd(() => { introDone = true; setViewMode('flat'); maybeOfferTour(); });
   setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1600);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
 }
 if (params.has('nohero')) {
   introDone = true;
   $('#hero').remove();
-  globe.flyRegion('BALTIC', 0);
+  setViewMode('flat');
+  globe3d.flyRegion('BALTIC', 0);
   setTimeout(maybeOfferTour, 1500);
 } else {
   document.body.classList.add('hero-on');
+  document.body.classList.add('view-globe');
   globe.heroStart();
   setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
   $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
@@ -1030,10 +1072,13 @@ if (params.has('nohero')) {
 setInterval(() => { const h = $('#hero-utc'); if (h) h.textContent = utc(); const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
 
 globe.on('camera', (c) => {
-  $('#h-cam').textContent = `CAM ${Math.abs(c.lat).toFixed(4)}°${c.lat >= 0 ? 'N' : 'S'} ${Math.abs(c.lon).toFixed(4)}°${c.lon >= 0 ? 'E' : 'W'}`;
-  const alt = c.alt > 100000 ? `${fmt(Math.round(c.alt / 1000))} KM` : `${(c.alt / 1000).toFixed(1)} KM`;
-  $('#h-cam2').textContent = `ALT ${alt} · HDG ${pad(Math.round((c.heading + 360) % 360), 3)} · PITCH ${Math.round(c.pitch)}°`;
-  $('#ring').classList.toggle('on', c.alt > 4500000 || !introDone);
+  $('#h-cam').textContent = `${Math.abs(c.lat).toFixed(3)}°${c.lat >= 0 ? 'N' : 'S'}  ${Math.abs(c.lon).toFixed(3)}°${c.lon >= 0 ? 'E' : 'W'}`;
+  if (c.flat) $('#h-cam2').textContent = `VIEW ${fmt(Math.round(c.spanKm))} KM ACROSS · ZOOM ${c.k.toFixed(1)}×`;
+  else {
+    const alt = c.alt > 100000 ? `${fmt(Math.round(c.alt / 1000))} KM` : `${(c.alt / 1000).toFixed(1)} KM`;
+    $('#h-cam2').textContent = `ALT ${alt} · PITCH ${Math.round(c.pitch)}°`;
+  }
+  $('#ring').classList.toggle('on', viewMode === 'globe' && (c.alt > 4500000 || !introDone));
   const n = globe.countInView();
   if (n !== state.inView) { state.inView = n; setNum($('#h-obs'), n, { dur: 400 }); }
 });
@@ -1095,6 +1140,9 @@ function flyIncident(id) {
 
 document.addEventListener('click', (e) => {
   const t = e.target;
+  if (t.closest('#z-in')) { viewMode === 'flat' ? flat.zoomBy(1.8) : globe3d.viewer.camera.zoomIn(globe3d.viewer.camera.positionCartographic.height * 0.4); return; }
+  if (t.closest('#z-out')) { viewMode === 'flat' ? flat.zoomBy(1 / 1.8) : globe3d.viewer.camera.zoomOut(globe3d.viewer.camera.positionCartographic.height * 0.6); return; }
+  if (t.closest('#b-mode')) { setViewMode(viewMode === 'flat' ? 'globe' : 'flat'); return; }
   const reg = t.closest('.tab[data-r]');
   if (reg) { state.region = reg.dataset.r; renderRegions(); globe.flyRegion(state.region); return; }
   const tl = t.closest('#tiles .tile[data-k]');
