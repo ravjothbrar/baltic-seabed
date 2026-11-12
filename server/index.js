@@ -6,7 +6,7 @@ import path from 'node:path';
 import WebSocket from 'ws';
 import { DatabaseSync } from 'node:sqlite';
 import { loadCorridors } from './corridors.js';
-import { evaluate, SIGNAL_INFO } from './detect.js';
+import { evaluate, SIGNAL_INFO, T } from './detect.js';
 import { typeLabel, flagOf } from './ais-meta.js';
 import { distNm, inBaltic, BBOX } from './geo.js';
 
@@ -110,14 +110,14 @@ const wxCached = (lon, lat) => wx.get(`${Math.round(lon)},${Math.round(lat)}`)?.
 function peersNear(v, now) {
   let n = 0;
   for (const o of vessels.values()) {
-    if (o === v || o.lat == null || now - o.ts > 10 * 60e3 || Math.abs(o.lat - v.lat) > 0.35) continue;
-    if (distNm(v.lon, v.lat, o.lon, o.lat) <= 20) n++;
+    if (o === v || o.lat == null || now - o.ts > 10 * 60e3 || Math.abs(o.lat - v.lat) > 0.2) continue;
+    if (distNm(v.lon, v.lat, o.lon, o.lat) <= T.DARK_PEER_NM) n++;
   }
   return n;
 }
 function evalVessel(v, now = Date.now()) {
   const track = tracks.get(v.mmsi); if (!track?.length) return;
-  const silent = now - v.ts > 30 * 60e3;
+  const silent = now - v.ts > T.DARK_MIN * 60e3;
   const r = evaluate({ vessel: v, track, now, corridors, weather: wxCached(v.lon, v.lat), watch: v.watch, peers: silent ? peersNear(v, now) : null });
   const prev = alerts.get(v.mmsi);
   if (r?.level) {

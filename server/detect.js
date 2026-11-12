@@ -7,7 +7,7 @@ export const T = {
   LOITER_SOG: 3, LOITER_MIN: 20,
   DRAG_SOG_MIN: 1, DRAG_SOG_MAX: 7, DRAG_DROP: 0.6, DRAG_MEDIAN_MIN: 8, DRAG_KM: 2,
   CROSS_NM: 0.3, CROSS_DROP: 0.5, CROSS_MEDIAN_MIN: 6,
-  DARK_MIN: 30, DARK_MAX_H: 6, DARK_NEAR_NM: 10, DARK_PEERS: 3, DARK_PEER_NM: 20,
+  DARK_MIN: 45, DARK_MAX_H: 6, DARK_NEAR_NM: 10, DARK_PEERS: 5, DARK_PEER_NM: 10,
   PORT_NM: 3, GALE_KN: 30, WAVE_M: 3,
 };
 
@@ -129,7 +129,7 @@ function caveats(signals, ctx, v) {
   for (const s of signals) out.push(`${s.label}: ${SIGNAL_INFO[s.id].why}`);
   if (ctx.nearestAnchorage) out.push(`Nearest port/anchorage zone: ${ctx.nearestAnchorage.name}, ${ctx.nearestAnchorage.nm} nm away. Waiting for a berth or pilot looks exactly like this.`);
   if (ctx.windKn != null) out.push(`Weather here now: ${fmtWx(ctx)}.${ctx.windKn >= 25 ? ' Ships routinely slow or heave-to in these conditions.' : ''}`);
-  if (ctx.peers != null) out.push(`AIS coverage: ${ctx.peers} other ships within 20 nm reported in the last 10 min. The coverage here comes from Finnish coastal receivers and it is patchy.`);
+  if (ctx.peers != null) out.push(`AIS coverage: ${ctx.peers} other ships within 10 nm reported in the last 10 min. The coverage here comes from Finnish coastal receivers and it is patchy.`);
   out.push('Eagle S (Estlink 2, 2024): seabed drag marks were found, yet a district court dismissed the case in Oct 2025 (an appeal court sent it back for trial in Aug 2026). Yi Peng 3: no conclusive evidence of deliberate dragging. Even strong-looking cases are hard to prove.');
   out.push('AIS is self-reported, can be spoofed or switched off, and sees nothing below the surface. No alert here is evidence of intent.');
   void v;
