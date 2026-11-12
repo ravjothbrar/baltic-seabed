@@ -1,0 +1,15 @@
+# Optional: full server mode on Fly.io (persistent 48 h archive, aisstream support). Manual trigger.
+# To deploy on every push instead, add `push: { branches: [main] }` below. Needs secret FLY_API_TOKEN.
+name: deploy-fly
+on:
+  workflow_dispatch:
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -1,0 +1,4 @@
+{
+  "instructions": "Hand-label real episodes from data/seabed.db after recording >=48h. One object per episode. Do NOT let a model write these labels.",
+  "episodes": []
+}

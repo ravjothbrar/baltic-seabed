@@ -1,0 +1,21 @@
+{
+  "name": "baltic-seabed-watch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Live OSINT globe for Baltic undersea cables and pipelines",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "NODE_USE_ENV_PROXY=1 node --no-warnings server/index.js",
+    "server": "NODE_USE_ENV_PROXY=1 node --no-warnings --watch server/index.js",
+    "dev": "NODE_USE_ENV_PROXY=1 node --no-warnings server/index.js & npm --prefix web run dev",
+    "build": "npm --prefix web install && npm --prefix web run build",
+    "fetch:static": "NODE_USE_ENV_PROXY=1 node scripts/fetch-static.mjs",
+    "fetch:watchlist": "NODE_USE_ENV_PROXY=1 node scripts/fetch-watchlist.mjs",
+    "eval": "node --no-warnings eval/run-eval.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
