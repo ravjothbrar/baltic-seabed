@@ -1,4 +1,5 @@
 // Builds web/public/data/{infra.geojson, anchorages.geojson, grid.json} from public sources.
+// Run scripts/fetch_bathymetry.py first to get depth.json (glider depth mask).
 // Output is committed so the live site never depends on these upstreams.
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { clipLine, simplify, lineKm, distNm, BBOX, inBaltic } from '../server/geo.js';
@@ -115,10 +116,29 @@ for (const f of features) {
 }
 // Drop cells that are on land: within ~1.5 km of a port is fine, but we have no land mask, so keep all
 // cable cells (they are by definition on or near the seabed) and flag that depth is not modelled.
+// Depth from EMODnet Bathymetry (scripts/fetch_bathymetry.py → depth.json), if present.
+let depth = null;
+try { depth = JSON.parse(await readFile(new URL('depth.json', OUT), 'utf8')); } catch {}
+const MIN_DEPTH = 25; // m: shallower water is marginal for gliders (assumption, shown in the UI)
+function depthAt(lon, lat) {
+  if (!depth) return null;
+  const c = Math.floor((lon - depth.bbox[0]) / depth.res), r = Math.floor((depth.bbox[3] - lat) / depth.res);
+  const vals = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const v = depth.values[r + dr]?.[c + dc]; if (v != null) vals.push(v); }
+  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+}
 const grid = {
   cell: CELL,
-  note: 'Cells crossed by mapped cables/pipelines. depthOk=1 everywhere: no bathymetry mask applied in this build.',
-  cells: [...cells].map(([k, v]) => { const [x, y] = k.split(',').map(Number); return [+((x + 0.5) * CELL).toFixed(3), +((y + 0.5) * CELL).toFixed(3), +v.km.toFixed(2), v.named, 1]; }),
+  minDepthM: depth ? MIN_DEPTH : null,
+  depthSource: depth ? depth.source : null,
+  note: depth
+    ? `Cells crossed by mapped cables/pipelines. [lon, lat, infraKm, named, depthOk, depthM]; depthOk=0 where mean depth is shallower than ${MIN_DEPTH} m (EMODnet Bathymetry).`
+    : 'Cells crossed by mapped cables/pipelines. depthOk=1 everywhere: no bathymetry mask applied in this build.',
+  cells: [...cells].map(([k, v]) => {
+    const [x, y] = k.split(',').map(Number); const lon = (x + 0.5) * CELL, lat = (y + 0.5) * CELL;
+    const d = depthAt(lon, lat);
+    return [+lon.toFixed(3), +lat.toFixed(3), +v.km.toFixed(2), v.named, d == null ? 1 : d <= -MIN_DEPTH ? 1 : 0, d];
+  }),
 };
 await writeFile(new URL('grid.json', OUT), JSON.stringify(grid));
 console.log('  grid cells:', grid.cells.length);
