@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Baltic Seabed Watch</title>
   <meta name="description" content="Live open-source watch over Baltic undersea cables and pipelines: AIS, sanctions lists, infrastructure routes, and a simulated glider coverage layer." />
-  <meta name="theme-color" content="#060b0f" />
+  <meta name="theme-color" content="#000000" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Baltic Seabed Watch" />
   <meta property="og:description" content="Live watch over Baltic undersea cables and pipelines from public data: ships, sanctions lists, explainable signals, and what gliders would add." />
@@ -19,7 +19,9 @@
   <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- fonts never block first paint: load async, swap in when ready (system fallbacks below have close metrics) -->
+  <!-- landing fonts are self-hosted and preloaded (≈57 KB): condensed display + mono. Dashboard fonts load async. -->
+  <link rel="preload" href="fonts/archivo-cond.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/plexmono-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" /></noscript>
   <!-- the intro globe's land (~50 KB gz) starts downloading with the HTML -->
@@ -29,70 +31,89 @@
     (function () { var q = location.search; if (/[?&]nohero\b/.test(q)) document.documentElement.classList.add('nohero'); if (/[?&]hold\b/.test(q)) document.documentElement.classList.add('hold'); })();
   </script>
   <style>
-    /* critical intro CSS: paints with the HTML, before any JS or web font */
-    html, body { margin: 0; background: #05090d; }
-    .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: #05090d;
+    /* ── landing: critical CSS, paints with the HTML ───────────────────────── */
+    @font-face { font-family: 'BSW Display'; src: url(fonts/archivo-cond.woff2) format('woff2-variations'), url(fonts/archivo-cond.woff2) format('woff2');
+      font-weight: 600 900; font-stretch: 62% 75%; font-display: swap; }
+    @font-face { font-family: 'BSW Mono'; src: url(fonts/plexmono-300.woff2) format('woff2'); font-weight: 300; font-display: swap; }
+    @font-face { font-family: 'BSW Mono'; src: url(fonts/plexmono-400.woff2) format('woff2'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: 'BSW Mono'; src: url(fonts/plexmono-500.woff2) format('woff2'); font-weight: 500; font-display: swap; }
+    /* metric-ish fallbacks so nothing reflows much when the web fonts arrive */
+    @font-face { font-family: 'BSW Display Fallback'; src: local('Arial Narrow Bold'), local('ArialNarrow-Bold'), local('Roboto Condensed Bold'), local('DejaVu Sans Condensed Bold'), local('Liberation Sans Narrow Bold'); font-weight: 600 900; size-adjust: 104%; }
+    :root { --ix-accent: #e2533f; --ix-dim: rgba(255,255,255,.56); --ix-line: rgba(255,255,255,.16); }
+    html, body { margin: 0; background: #000; }
+    .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: #000;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: background .7s ease; }
     html.nohero .intro { display: none; }
     .intro-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .5s ease; }
     .intro-shade { position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(90deg, rgba(5,9,13,.96) 0%, rgba(5,9,13,.82) 30%, rgba(5,9,13,0) 56%), linear-gradient(0deg, rgba(5,9,13,.9) 0%, rgba(5,9,13,0) 18%); }
-    .intro-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 26px clamp(20px, 3.4vw, 56px) 0; transition: opacity .35s ease; }
-    .intro-mono, .intro-top, .intro-foot, .intro-k { font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; text-transform: uppercase; }
-    .intro-top { display: flex; justify-content: space-between; align-items: center; gap: 20px; font-size: 11px; letter-spacing: .2em; color: rgba(255,255,255,.55);
-      padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
-    .intro-top .mark { color: #fff; letter-spacing: .28em; }
-    .intro-top .mark b { color: #53f0c9; font-weight: 400; }
+      background: radial-gradient(120% 90% at 70% 30%, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 80%), linear-gradient(90deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.35) 32%, rgba(0,0,0,0) 52%); }
+    /* left tick ruler (as on Clarity) */
+    .intro::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 6px; z-index: 2; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0) 0 27px, rgba(255,255,255,.55) 27px 28px, rgba(255,255,255,0) 28px 56px); }
+    .intro-ui { position: absolute; inset: 0; transition: opacity .35s ease; }
+    .ix-mono { font-family: 'BSW Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+    /* top strip: mark left, live + menu glyph right */
+    .intro-top { position: absolute; left: clamp(24px, 5.5vw, 108px); right: clamp(24px, 5.5vw, 108px); top: 22px; display: flex; justify-content: space-between; align-items: center; }
+    .intro-top .mark { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: #fff; }
+    .intro-top .mark svg { width: 30px; height: 30px; display: block; }
+    .intro-top .mark span { font: 400 11px 'BSW Mono', ui-monospace, monospace; letter-spacing: .22em; color: var(--ix-dim); }
+    .intro-top .live { display: flex; align-items: center; gap: 22px; font: 400 11px 'BSW Mono', ui-monospace, monospace; letter-spacing: .18em; color: var(--ix-dim); text-transform: uppercase; }
     .intro-top .live b { color: #fff; font-weight: 500; }
-    .intro-top .live i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #53f0c9; box-shadow: 0 0 10px #53f0c9; margin-right: 10px; vertical-align: 1px; animation: introBlink 1.8s ease-in-out infinite; }
-    @keyframes introBlink { 50% { opacity: .35; } }
-    .intro-mid { max-width: min(1000px, 58vw); margin: auto 0; padding-bottom: 2vh; }
-    .intro-mid p { max-width: 470px; }
-    .intro-k { font-size: 11px; letter-spacing: .26em; color: #53f0c9; margin-bottom: clamp(18px, 2.6vh, 30px); display: flex; gap: 14px; align-items: center; }
-    .intro-k::after { content: ''; height: 1px; width: 56px; background: rgba(83,240,201,.5); }
-    .intro h1 { margin: 0; font-weight: 300; font-size: clamp(46px, 6.1vw, 112px); line-height: .98; letter-spacing: -0.048em; color: #fff; }
-    .intro h1 > span { display: block; overflow: hidden; padding-bottom: .06em; white-space: nowrap; }
-    .intro h1 > span > span { display: block; animation: introUp .9s cubic-bezier(.2,.75,.15,1) both; }
-    .intro h1 > span:nth-child(2) > span { animation-delay: .12s; }
-    @keyframes introUp { from { transform: translateY(104%); } to { transform: none; } }
-    .intro p { margin: clamp(20px, 3vh, 32px) 0 0; max-width: 470px; font-size: clamp(15px, 1.15vw, 18px); line-height: 1.55; color: rgba(255,255,255,.62); animation: introFade .8s ease both .35s; }
-    .intro-act { display: flex; gap: 14px; flex-wrap: wrap; margin-top: clamp(26px, 4vh, 40px); animation: introFade .8s ease both .5s; }
-    @keyframes introFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-    .intro-go { font: 500 12px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .22em; color: #05090d; background: #fff; border: 0; padding: 15px 26px; cursor: pointer; transition: background .2s, color .2s; }
-    .intro-go:hover { background: #53f0c9; }
-    .intro-go span { margin-left: 10px; }
-    .intro .byline { display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border: 1px solid rgba(169,139,255,.55); background: rgba(169,139,255,.1);
-      color: #a98bff; text-decoration: none; font: 500 11px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .16em; }
+    .intro-top .live i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ix-accent); margin-right: 10px; vertical-align: 1px; animation: ixBlink 1.6s ease-in-out infinite; }
+    .intro-top .burger { width: 42px; height: 10px; display: inline-block; background: linear-gradient(#fff,#fff) 0 0/100% 2px no-repeat, linear-gradient(#fff,#fff) 0 4px/100% 2px no-repeat, linear-gradient(#fff,#fff) 0 8px/100% 2px no-repeat; opacity: .9; }
+    @keyframes ixBlink { 50% { opacity: .3; } }
+    /* countdown hairline under the top strip */
+    .intro-bar { position: absolute; left: clamp(24px, 5.5vw, 108px); right: clamp(24px, 5.5vw, 108px); top: 70px; height: 1px; background: var(--ix-line); }
+    .intro-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: #fff; animation: ixBar 7.7s linear forwards; }
+    html.hold .intro-bar i { display: none; }
+    @keyframes ixBar { to { transform: scaleX(1); } }
+    /* left column: label, copy, actions */
+    .intro-col { position: absolute; left: clamp(24px, 5.5vw, 108px); top: clamp(104px, 15vh, 150px); width: min(520px, 40vw); }
+    .intro-k { font: 400 11px 'BSW Mono', ui-monospace, monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--ix-dim); display: flex; gap: 14px; align-items: center; }
+    .intro-k b { color: #fff; font-weight: 400; }
+    .intro .intro-p { margin: 18px 0 0; font-size: clamp(15px, 1.2vw, 19px); line-height: 1.5; color: rgba(255,255,255,.86); letter-spacing: -.005em; animation: ixFade .8s ease both .5s; }
+    .intro-act { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; margin-top: 26px; animation: ixFade .8s ease both .65s; }
+    .intro-go { font: 500 12px 'BSW Mono', ui-monospace, monospace; letter-spacing: .24em; color: #000; background: #fff; border: 0; padding: 14px 22px; cursor: pointer; transition: background .2s, color .2s; }
+    .intro-go:hover { background: var(--ix-accent); color: #fff; }
+    .intro-go span { margin-left: 12px; }
+    .intro .byline { display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid rgba(169,139,255,.55); background: rgba(169,139,255,.1);
+      color: #a98bff; text-decoration: none; font: 400 10.5px 'BSW Mono', ui-monospace, monospace; letter-spacing: .16em; }
     .intro .byline .byline-n { color: #e6dcff; font: 500 14px Inter, system-ui, sans-serif; letter-spacing: .01em; }
-    .intro-foot { display: flex; gap: clamp(14px, 2.2vw, 34px); align-items: center; font-size: 10.5px; letter-spacing: .18em; color: rgba(255,255,255,.45);
-      border-top: 1px solid rgba(255,255,255,.1); padding: 15px 0 18px; flex-wrap: wrap; row-gap: 6px; }
-    .intro-foot em { font-style: normal; color: rgba(255,255,255,.28); margin-right: 8px; }
-    .intro-foot .sp { flex: 1; }
-    .intro-foot .hint { color: #53f0c9; }
-    .intro-foot .hint .m { display: none; }
-    .intro-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.06); }
-    .intro-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: #53f0c9; box-shadow: 0 0 8px #53f0c9; animation: introBar 7.7s linear forwards; }
-    html.hold .intro-bar { display: none; }
-    @keyframes introBar { to { transform: scaleX(1); } }
+    .intro-hint { margin-top: 14px; font: 400 10.5px 'BSW Mono', ui-monospace, monospace; letter-spacing: .18em; color: rgba(255,255,255,.4); text-transform: uppercase; animation: ixFade .8s ease both .8s; }
+    .intro-hint .m { display: none; }
+    /* stats row (Clarity's "> 10 TB / > 1 billion / Omnipresent") */
+    .intro-stats { position: absolute; left: clamp(24px, 5.5vw, 108px); width: min(860px, 62vw); display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; animation: ixFade .9s ease both 1.2s; }
+    .intro-stats div { border-top: 1px solid rgba(255,255,255,.75); padding-top: 12px; display: flex; flex-direction: column; }
+    .intro-stats small { display: block; font: 400 11px/1.35 'BSW Mono', ui-monospace, monospace; letter-spacing: .02em; color: rgba(255,255,255,.85); min-height: 2.7em; }
+    .intro-stats b { display: block; margin-top: auto; padding-top: 10px; font: 400 clamp(26px, 2.6vw, 44px)/1 'BSW Mono', ui-monospace, monospace; letter-spacing: .02em; color: var(--ix-accent); white-space: nowrap; }
+    /* full-width mono subtitle + giant condensed word that bleeds off the bottom */
+    .intro-sub { position: absolute; left: clamp(14px, 2.2vw, 40px); right: clamp(14px, 2.2vw, 40px); white-space: nowrap; overflow: hidden;
+      font: 300 3.9vw/1 'BSW Mono', 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+    .intro-word { position: absolute; left: -0.02em; bottom: -0.135em; margin: 0; white-space: nowrap; line-height: .8; color: #fff;
+      font-family: 'BSW Display', 'BSW Display Fallback', 'Arial Narrow', Impact, 'Roboto Condensed', sans-serif; font-weight: 900; font-stretch: 62%;
+      font-variation-settings: 'wdth' 62, 'wght' 900; letter-spacing: -.012em; text-transform: uppercase; font-size: 30vw; }
+    .intro-word > span { display: inline-block; overflow: hidden; vertical-align: bottom; padding-top: .04em; }
+    .intro-word > span > span { display: inline-block; animation: ixUp .95s cubic-bezier(.2,.75,.12,1) both; }
+    @keyframes ixUp { from { transform: translateY(105%); } to { transform: none; } }
+    @keyframes ixFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     body.hero-out .intro { background: transparent; pointer-events: none; }
-    body.hero-out .intro-ui, body.hero-out .intro-shade { opacity: 0; }
+    body.hero-out .intro-ui, body.hero-out .intro-shade, body.hero-out .intro::before { opacity: 0; }
     .intro.done { background: transparent; pointer-events: none; }
-    .intro.done .intro-globe { opacity: 0; }
-    .intro.done .intro-ui, .intro.done .intro-shade { opacity: 0; }
+    .intro.done .intro-globe, .intro.done .intro-ui, .intro.done .intro-shade { opacity: 0; }
     @media (max-width: 900px) {
-      .intro-shade { background: linear-gradient(0deg, rgba(5,9,13,.97) 0%, rgba(5,9,13,.85) 46%, rgba(5,9,13,0) 70%); }
-      .intro-ui { padding: 18px 18px 0; }
-      .intro-top { font-size: 9.5px; letter-spacing: .14em; }
-      .intro-top .mark { letter-spacing: .18em; white-space: nowrap; }
-      .intro-top .live { white-space: nowrap; }
-      .intro-top .live .opt, .intro-top .live .lbl { display: none; }
-      .intro h1 > span { white-space: normal; }
-      .intro-k { font-size: 10px; letter-spacing: .18em; }
-      .intro-mid { max-width: none; margin: auto 0 20px; padding: 0; }
-      .intro h1 { font-size: clamp(40px, 11.5vw, 64px); }
-      .intro-foot .ix { display: none; }
-      .intro-foot .hint .d { display: none; }
-      .intro-foot .hint .m { display: inline; }
+      .intro-shade { background: linear-gradient(180deg, rgba(0,0,0,.2) 0%, rgba(0,0,0,.65) 60%, rgba(0,0,0,.85) 100%); }
+      .intro::before { left: 3px; width: 4px; }
+      .intro-top { left: 18px; right: 18px; top: 16px; }
+      .intro-top .mark span, .intro-top .live .opt { display: none; }
+      .intro-top .live { gap: 14px; font-size: 10px; letter-spacing: .12em; }
+      .intro-bar { left: 18px; right: 18px; top: 58px; }
+      .intro-col { left: 18px; right: 18px; width: auto; top: auto; }
+      .intro .intro-p { font-size: 15px; }
+      .intro-hint .d { display: none; } .intro-hint .m { display: inline; }
+      .intro-stats { left: 18px; right: 18px; width: auto; gap: 12px; }
+      .intro-stats small { font-size: 9.5px; }
+      .intro-stats b { font-size: clamp(16px, 5vw, 22px); }
+      .intro-stats small { min-height: 0; }
     }
     @media (prefers-reduced-motion: reduce) { .intro *, .intro *::after { animation: none !important; } .intro-bar { display: none; } }
   </style>
@@ -105,25 +126,65 @@
     <div class="intro-shade"></div>
     <div class="intro-ui">
       <header class="intro-top">
-        <span class="mark">BALTIC <b>SEABED</b> WATCH</span>
-        <span class="live"><i></i>LIVE · <b id="hero-n">—</b><span class="lbl"> SHIPS</span><span class="opt"> · <b id="hero-km">—</b> KM OF SEABED LINES</span></span>
+        <a class="mark" href="./" aria-label="Baltic Seabed Watch"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="#fff" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#e2533f"/></svg><span>BALTIC SEABED WATCH</span></a>
+        <span class="live"><span><i></i>LIVE · <b data-hero="ships" id="hero-n">—</b> SHIPS</span><span class="opt">UNCLASSIFIED // OPEN SOURCE</span><span class="burger" aria-hidden="true"></span></span>
       </header>
-      <main class="intro-mid">
-        <div class="intro-k">Open-source maritime awareness</div>
-        <h1><span><span>The seabed is the</span></span><span><span>new front line.</span></span></h1>
-        <p>Ships, cables and pipelines across the Baltic, watched live from public data, with every signal's weakness shown next to it.</p>
+      <div class="intro-bar"><i></i></div>
+      <section class="intro-col">
+        <div class="intro-k"><b>01</b><span>Open-source maritime awareness</span></div>
+        <p class="intro-p">Ships, cables and pipelines across the Baltic, watched live from public data, with every signal's weakness shown next to it.</p>
         <div class="intro-act">
           <button class="intro-go" id="hero-go" type="button">ENTER<span>→</span></button>
           <a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
         </div>
-      </main>
-      <footer class="intro-foot">
-        <span class="ix"><em>01</em>Live AIS</span><span class="ix"><em>02</em>Cables &amp; pipelines</span><span class="ix"><em>03</em>Sanctions lists</span><span class="ix"><em>04</em>Incident log</span><span class="ix"><em>05</em>Glider coverage</span>
-        <span class="sp"></span><span class="hint"><span class="d">Click or press any key</span><span class="m">Tap anywhere to enter</span></span>
-      </footer>
+        <div class="intro-hint"><span class="d">Click, scroll or press any key</span><span class="m">Tap anywhere to enter</span></div>
+      </section>
+      <section class="intro-stats" aria-label="Live figures">
+        <div><small>Ships tracked live in the Baltic</small><b>&gt; <span data-hero="ships">—</span></b></div>
+        <div><small>Undersea cable &amp; pipeline length mapped</small><b><span data-hero="km" id="hero-km">—</span> km</b></div>
+        <div><small>Suspected damage incidents since 2022</small><b data-hero="inc">7</b></div>
+      </section>
+      <div class="intro-sub ix-mono" id="intro-sub" aria-label="Baltic undersea infrastructure watch">Baltic undersea infrastructure watch</div>
+      <h1 class="intro-word" id="intro-word" aria-label="Seabed"><span><span>S</span></span><span><span>E</span></span><span><span>A</span></span><span><span>B</span></span><span><span>E</span></span><span><span>D</span></span></h1>
     </div>
-    <div class="intro-bar"><i></i></div>
   </div>
+  <script>
+    // Fit the giant word to the viewport width (Clarity-style full bleed), place the subtitle and stats above it,
+    // stagger the letters, and scramble the mono subtitle in. Runs before first paint; refits when fonts arrive.
+    (function () {
+      var word = document.getElementById('intro-word'); if (!word) return;
+      var sub = document.getElementById('intro-sub'), stats = document.querySelector('.intro-stats'), col = document.querySelector('.intro-col');
+      var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var letters = word.querySelectorAll('span > span');
+      for (var i = 0; i < letters.length; i++) letters[i].style.animationDelay = (0.06 + i * 0.055) + 's';
+      function fit() {
+        var W = innerWidth, H = innerHeight, mob = W < 900;
+        word.style.fontSize = '100px';
+        var w = word.getBoundingClientRect().width || 1;
+        var fs = 100 * (W + 0.04 * 100) / w;              // fill the width edge to edge
+        fs = Math.min(fs, H * (mob ? 0.42 : 0.62));         // keep room above it on short screens
+        word.style.fontSize = fs + 'px';
+        var top = H - fs * (0.8 - 0.135) - fs * 0.04;       // visible top of the caps
+        var subH = sub.getBoundingClientRect().height;
+        sub.style.top = (top - subH - Math.max(10, fs * 0.05)) + 'px';
+        var sTop = top - subH - Math.max(10, fs * 0.05) - stats.getBoundingClientRect().height - (mob ? 22 : 34);
+        stats.style.top = sTop + 'px';
+        if (mob) col.style.top = Math.max(76, sTop - col.getBoundingClientRect().height - 26) + 'px';
+      }
+      fit(); addEventListener('resize', fit);
+      if (document.fonts) { document.fonts.load('900 100px "BSW Display"').then(fit); document.fonts.ready.then(fit); }
+      // scramble-in for the subtitle
+      var txt = sub.textContent, chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/·';
+      if (!reduce) {
+        var t0 = performance.now(), dur = 900;
+        (function step(t) {
+          var p = Math.min(1, (t - t0) / dur), n = Math.floor(p * txt.length), out = '';
+          for (var j = 0; j < txt.length; j++) out += j < n || txt[j] === ' ' ? txt[j] : chars[(Math.random() * chars.length) | 0];
+          sub.textContent = out; if (p < 1) requestAnimationFrame(step); else sub.textContent = txt;
+        })(t0);
+      }
+    })();
+  </script>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
