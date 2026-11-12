@@ -930,3 +930,9 @@ a.chip.btn { text-decoration: none; display: inline-flex; align-items: center; }
 #b-brief { display: inline-flex; align-items: center; }
 @media (max-width: 900px) { #b-how { display: none; } }
 @media (max-width: 430px) { .topbar .brand-name { letter-spacing: 0.1em; font-size: 11px; } .topbar .status-pill { padding-left: 8px; padding-right: 8px; letter-spacing: 0.08em; font-size: 11px; gap: 6px; } .topbar { gap: 6px; } }
+
+/* brief: evidence is visible text, not only a hover title (touch devices) */
+.bf-ev { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-2, #b9cbd1); }
+.bf-ev li { margin: 2px 0; }
+.bf-ev b { font-weight: 600; color: var(--ink, #e6f2f4); }
+.bf-ev i { color: var(--ink-3, #9fb3bb); font-style: normal; }

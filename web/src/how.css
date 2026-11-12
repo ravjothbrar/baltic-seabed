@@ -232,3 +232,9 @@ main > section { padding-left: clamp(24px, 5.5vw, 108px); padding-right: clamp(2
   .h-sec { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .h-word > span > span { animation: none; } }
+
+/* brief: evidence is visible text, not only a hover title (touch devices) */
+.bf-ev { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-2, #b9cbd1); }
+.bf-ev li { margin: 2px 0; }
+.bf-ev b { font-weight: 600; color: var(--ink, #e6f2f4); }
+.bf-ev i { color: var(--ink-3, #9fb3bb); font-style: normal; }

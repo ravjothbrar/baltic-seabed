@@ -921,13 +921,14 @@ function applyVessels(upd, del) {
   if (upd?.length) {
     for (const v of upd) state.vessels.set(v.mmsi, v);
     globe.upsertVessels(upd);
-    if (heroGlobe) heroGlobe.setVessels([...state.vessels.values()]);
     state.lastVesselMsg = Date.now();
   }
   if (del?.length) {
     for (const id of del) state.vessels.delete(id);
     globe.removeVessels(del);
   }
+  // refresh the intro globe once, after both updates and deletions
+  if (heroGlobe && (upd?.length || del?.length)) heroGlobe.setVessels([...state.vessels.values()]);
 }
 function applyAlert(a) {
   if (!a || !a.id) return;
