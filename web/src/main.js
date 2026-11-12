@@ -163,7 +163,7 @@ document.querySelector('#app').innerHTML = `
     <span>Independent project by <b>Ravjoth Brar</b> · public data · not affiliated with Helsing</span>
     <span class="sp"></span>
     <span>AIS IS SELF-REPORTED · NOTHING HERE IS EVIDENCE OF INTENT</span>
-    <span>© OPENSTREETMAP · CARTO · EMODNET · TELEGEOGRAPHY · OPENSANCTIONS · DIGITRAFFIC</span>
+    <span>NATURAL EARTH · EMODNET · TELEGEOGRAPHY · OPENSANCTIONS · DIGITRAFFIC</span>
   </footer>
 
   <div class="sheet min" id="sheet">
@@ -525,7 +525,8 @@ function renderIncidents() {
     el.innerHTML = `<div class="empty">Incident log is being verified against sources.<br/>Rows appear here only once each is cited.</div>`;
     return;
   }
-  el.innerHTML = list.map((i) => `
+  const note = state.incidentNote ? `<div class="empty" style="padding:2px 4px 8px;color:var(--amber)">${esc(state.incidentNote)}</div>` : '';
+  el.innerHTML = note + list.map((i) => `
     <button class="inc" data-id="${esc(i.id)}">
       <span class="dt">${esc((i.date || '').slice(0, 10))}</span>
       <span><div class="ti">${esc(i.title)}</div><div class="ve">${i.vessel?.name ? esc(i.vessel.name) + (i.vessel.flag ? ' · ' + esc(i.vessel.flag) : '') : 'no vessel identified'}</div><div class="oc">${esc(i.outcome || '')}</div></span>
@@ -777,15 +778,19 @@ async function getJSON(url) {
   }
 }
 
+let coastLoaded = false;
 async function loadStatic() {
+  if (!coastLoaded) getJSON('/geo/coast.json').then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
   const [infra, incidents, grid] = await Promise.all([getJSON('/data/infra.geojson'), getJSON('/data/incidents.json'), getJSON('/data/grid.json')]);
   if (infra && infra.features) {
     state.infra = infra;
     globe.setInfra(infra);
   }
-  if (Array.isArray(incidents)) {
-    state.incidents = incidents;
-    globe.setIncidents(incidents);
+  const incList = Array.isArray(incidents) ? incidents : Array.isArray(incidents?.incidents) ? incidents.incidents : null;
+  if (incList) {
+    state.incidents = incList;
+    state.incidentNote = incidents?.note || null;
+    globe.setIncidents(incList);
   }
   if (grid && grid.cells) state.grid = grid;
   if (state.infra) {
@@ -973,6 +978,7 @@ setInterval(() => { renderTop(); renderSources(); renderLayers(); }, 5000);
 
 let introDone = false;
 const params = new URLSearchParams(location.search);
+const HOLD = params.has('hold');
 $('#ring').classList.add('on');
 function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
@@ -993,7 +999,7 @@ if (params.has('nohero')) {
   setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
   $('#hero').addEventListener('click', exitHero);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
-  setTimeout(exitHero, 5200);
+  if (!HOLD) setTimeout(exitHero, 5200);
 }
 setInterval(() => { const h = $('#hero-utc'); if (h) h.textContent = utc(); const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
 

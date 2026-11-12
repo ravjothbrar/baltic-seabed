@@ -90,14 +90,15 @@ export function kmBetween(lon1, lat1, lon2, lat2) {
 export function createGlobe(container) {
   Cesium.Ion.defaultAccessToken = undefined;
 
-  const carto = new Cesium.UrlTemplateImageryProvider({
-    url: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    maximumLevel: 10,
-    credit: new Cesium.Credit('© OpenStreetMap contributors © CARTO', false),
-  });
+  // Keyless, self-hosted base: Natural Earth II imagery bundled with Cesium (darkened),
+  // with crisp vector coastlines/borders drawn on top (see setCoast).
+  const baseLayer = Cesium.ImageryLayer.fromProviderAsync(
+    Cesium.TileMapServiceImageryProvider.fromUrl(Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')),
+    {},
+  );
 
   const viewer = new Cesium.Viewer(container, {
-    baseLayer: new Cesium.ImageryLayer(carto, {}),
+    baseLayer,
     baseLayerPicker: false,
     geocoder: false,
     homeButton: false,
@@ -117,11 +118,11 @@ export function createGlobe(container) {
   const scene = viewer.scene;
   const globe = scene.globe;
   const base = viewer.imageryLayers.get(0);
-  base.brightness = 1.55;
-  base.contrast = 1.25;
-  base.saturation = 0.6;
-  base.hue = 0.0;
-  base.gamma = 0.9;
+  base.brightness = 0.42;
+  base.contrast = 1.6;
+  base.saturation = 0.25;
+  base.hue = 0.02;
+  base.gamma = 1.25;
 
   globe.baseColor = C.fromCssColorString('#02070a');
   globe.showGroundAtmosphere = true;
@@ -162,6 +163,7 @@ export function createGlobe(container) {
   // ---- collections ----
   const infraLines = { telecom: new Cesium.PolylineCollection(), power: new Cesium.PolylineCollection(), pipeline: new Cesium.PolylineCollection() };
   Object.values(infraLines).forEach((c) => scene.primitives.add(c));
+  const coastLines = scene.primitives.add(new Cesium.PolylineCollection());
   const infraLabels = scene.primitives.add(new Cesium.LabelCollection());
   const vesselTicks = scene.primitives.add(new Cesium.PolylineCollection());
   const vesselPoints = scene.primitives.add(new Cesium.PointPrimitiveCollection({ blendOption: Cesium.BlendOption.TRANSLUCENT }));
@@ -177,6 +179,21 @@ export function createGlobe(container) {
   const listeners = { pick: [], hover: [], camera: [] };
 
   const height = 400;
+
+  // ---- coastlines / borders (Natural Earth) ----
+  function setCoast(data) {
+    coastLines.removeAll();
+    if (!data) return;
+    const add = (lines, color, width, h = 60) => {
+      for (const l of lines || []) {
+        if (l.length < 2) continue;
+        coastLines.add({ positions: Cesium.Cartesian3.fromDegreesArrayHeights(l.flatMap(([x, y]) => [x, y, h])), width, material: Cesium.Material.fromType('Color', { color }) });
+      }
+    };
+    add(data.coastWorld, C.fromCssColorString('#4fb8c8').withAlpha(0.42), 1.0);
+    add(data.coastRegion, C.fromCssColorString('#6fd6e0').withAlpha(0.55), 1.2);
+    add(data.borders, C.fromCssColorString('#3c6f78').withAlpha(0.35), 0.8);
+  }
 
   // ---- infra ----
   function setInfra(fc) {
@@ -562,6 +579,7 @@ export function createGlobe(container) {
   return {
     viewer,
     setInfra,
+    setCoast,
     setIncidents,
     upsertVessels,
     removeVessels,
