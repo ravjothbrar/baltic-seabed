@@ -4,7 +4,7 @@
 //   2. Synthetic cases generated below from real cable geometry. Marked synthetic: true everywhere.
 import { readFileSync, existsSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { loadCorridors } from '../server/corridors.js';
+import { loadCorridors } from '../server/load.js';
 import { evaluate } from '../server/detect.js';
 import { typeLabel, flagOf } from '../server/ais-meta.js';
 import { distNm } from '../server/geo.js';

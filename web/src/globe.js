@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
+import { VectorMapProvider, addPlaceLabels, createDeclutter } from './basemap.js';
 
 const C = Cesium.Color;
 const COL = {
@@ -179,14 +180,30 @@ export function createGlobe(container) {
   let gliderDiscs = null;
   let gliderRings = null;
 
+  const declutter = createDeclutter(scene);
+  addPlaceLabels(scene, declutter);
+
   const vessels = new Map(); // mmsi -> {pt, tick, pulse, v}
   const layerVis = { telecom: true, power: true, pipeline: true, vessels: true, incidents: true, gliders: true };
   const listeners = { pick: [], hover: [], camera: [] };
 
   const height = 400;
 
-  // ---- coastlines / borders (Natural Earth) ----
+  // ---- basemap: vector land/sea tiles (crisp at any zoom) over the raster earth ----
+  let coastData = null;
+  let landData = null;
+  let vectorLayer = null;
+  function buildVector() {
+    if (!landData) return;
+    if (vectorLayer) viewer.imageryLayers.remove(vectorLayer, true);
+    vectorLayer = new Cesium.ImageryLayer(new VectorMapProvider(landData, coastData?.borders || []), { alpha: 0 });
+    viewer.imageryLayers.add(vectorLayer);
+    coastLines.removeAll();
+  }
+  function setLand(data) { landData = data; buildVector(); }
   function setCoast(data) {
+    coastData = data;
+    if (landData) { buildVector(); return; }
     coastLines.removeAll();
     if (!data) return;
     const add = (lines, color, width, h = 60) => {
@@ -204,6 +221,7 @@ export function createGlobe(container) {
   function setInfra(fc) {
     Object.values(infraLines).forEach((c) => c.removeAll());
     infraLabels.removeAll();
+    declutter.remove((it) => it.group === 'infra');
     if (!fc || !fc.features) return;
     const labelled = new Set();
     for (const f of fc.features) {
@@ -230,9 +248,10 @@ export function createGlobe(container) {
         if (p.named && p.name && !labelled.has(p.name)) {
           labelled.add(p.name);
           const mid = pts[Math.floor(pts.length / 2)];
-          infraLabels.add({
+          const text = p.name.toUpperCase();
+          const lab = infraLabels.add({
             position: Cesium.Cartesian3.fromDegrees(mid[0], mid[1], height),
-            text: p.name.toUpperCase(),
+            text,
             font: '500 9px "JetBrains Mono", monospace',
             fillColor: color.withAlpha(0.8),
             outlineColor: C.BLACK.withAlpha(0.9),
@@ -240,10 +259,10 @@ export function createGlobe(container) {
             style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             pixelOffset: new Cesium.Cartesian2(8, -6),
             horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 7.5e5),
-            scaleByDistance: new Cesium.NearFarScalar(2e5, 1.0, 2.2e6, 0.8),
+            show: false,
             id: { kind: 'infra', name: p.name, infraKind: kind, named: true },
           });
+          declutter.add({ group: 'infra', kind, label: lab, pos: lab.position, min: 0, max: 9e5, pri: 50, chars: text.length, size: 9, align: 'left', dx: 8 });
         }
       }
     }
@@ -254,13 +273,14 @@ export function createGlobe(container) {
   function setIncidents(list) {
     incidentBB.removeAll();
     incidentLabels.removeAll();
+    declutter.remove((it) => it.group === 'incident');
     const sorted = [...(list || [])].sort((a, b) => (a.lat || 0) - (b.lat || 0));
     sorted.forEach((inc, idx) => {
       if (typeof inc.lat !== 'number' || typeof inc.lon !== 'number') return;
       const left = idx % 2 === 1;
       const pos = Cesium.Cartesian3.fromDegrees(inc.lon, inc.lat, 600);
       incidentBB.add({ position: pos, image: ICON_DIAMOND, scale: 1, id: { kind: 'incident', id: inc.id } });
-      incidentLabels.add({
+      const lab = incidentLabels.add({
         position: pos,
         text: left
           ? `${inc.vessel?.name ? inc.vessel.name.toUpperCase() : shortTitle(inc.title)}  ${(inc.date || '').slice(0, 7)}`
@@ -273,15 +293,31 @@ export function createGlobe(container) {
         pixelOffset: new Cesium.Cartesian2(left ? -12 : 12, 0),
         horizontalOrigin: left ? Cesium.HorizontalOrigin.RIGHT : Cesium.HorizontalOrigin.LEFT,
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2.2e6),
+        show: false,
         id: { kind: 'incident', id: inc.id },
       });
+      declutter.add({ group: 'incident', label: lab, pos, min: 0, max: 2.6e6, pri: 96, chars: lab.text.length, size: 9.5, align: left ? 'right' : 'left', dx: 12 });
     });
     applyVis();
   }
 
   // ---- vessels ----
+  let focus = null; // null | 'listed' | 'alerts' | 'corridor' | 'moving'
+  const FOCUS = {
+    listed: (v) => !!v.watch,
+    alerts: (v) => !!v.level,
+    corridor: (v) => !!v.corridor,
+    moving: (v) => (v.sog || 0) > 0.6,
+  };
   function vesselColor(v) {
+    const c = baseColor(v);
+    return focus && FOCUS[focus] && !FOCUS[focus](v) ? c.withAlpha(0.1) : c;
+  }
+  function setFocus(mode) {
+    focus = mode && FOCUS[mode] ? mode : null;
+    upsertVessels([...vessels.values()].map((e) => e.v));
+  }
+  function baseColor(v) {
     if (v.level && COL[v.level]) return COL[v.level];
     if (v.watch) return COL.watch;
     return (v.sog || 0) > 0.6 ? COL.vessel.withAlpha(0.85) : COL.vesselSlow.withAlpha(0.6);
@@ -303,7 +339,8 @@ export function createGlobe(container) {
       const pos = Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 150);
       const col = vesselColor(v);
       const flagged = !!(v.level || v.watch);
-      const size = v.level ? 8 : v.watch ? 6.5 : 3.6;
+      const fm = focus && FOCUS[focus] && FOCUS[focus](v);
+      const size = (v.level ? 8 : v.watch ? 6.5 : 3.6) + (fm ? 2.5 : 0);
       if (!e) {
         e = {
           pt: vesselPoints.add({ position: pos, color: col, pixelSize: size, outlineColor: C.BLACK.withAlpha(0.6), outlineWidth: flagged ? 1 : 0, id: { kind: 'vessel', mmsi: v.mmsi } }),
@@ -462,11 +499,12 @@ export function createGlobe(container) {
     infraLines.telecom.show = layerVis.telecom;
     infraLines.power.show = layerVis.power;
     infraLines.pipeline.show = layerVis.pipeline;
-    for (let i = 0; i < infraLabels.length; i++) {
-      const l = infraLabels.get(i);
-      l.show = layerVis[l.id.infraKind] !== false;
-    }
-    incidentBB.show = incidentLabels.show = layerVis.incidents;
+    declutter.each((it) => {
+      if (it.group === 'infra') it.visible = layerVis[it.kind] !== false;
+      if (it.group === 'incident') it.visible = layerVis.incidents;
+    });
+    incidentBB.show = layerVis.incidents;
+    declutter.run();
     vesselPoints.show = vesselTicks.show = pulsePoints.show = layerVis.vessels;
     gliderBB.show = layerVis.gliders;
     if (gliderDiscs) gliderDiscs.show = layerVis.gliders;
@@ -537,6 +575,7 @@ export function createGlobe(container) {
   // ---- per-frame animation ----
   const t0 = performance.now();
   let lastCam = 0;
+  let lastDeclutter = 0;
   scene.preRender.addEventListener(() => {
     const t = (performance.now() - t0) / 1000;
     if (spinning) viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0009);
@@ -568,6 +607,14 @@ export function createGlobe(container) {
       const id = p && p.id && p.id.kind ? p.id : null;
       scene.canvas.style.cursor = id ? 'pointer' : 'default';
       listeners.hover.forEach((f) => f(id, pos));
+    }
+    if (t - lastDeclutter > 0.12) {
+      lastDeclutter = t;
+      declutter.run();
+      if (vectorLayer) {
+        const h = viewer.camera.positionCartographic.height;
+        vectorLayer.alpha = Math.max(0, Math.min(1, (1.15e7 - h) / (1.15e7 - 5.5e6)));
+      }
     }
     if (t - lastCam > 0.25) {
       lastCam = t;
@@ -602,6 +649,9 @@ export function createGlobe(container) {
     viewer,
     setInfra,
     setCoast,
+    setLand,
+    setFocus,
+    getFocus: () => focus,
     setIncidents,
     upsertVessels,
     removeVessels,

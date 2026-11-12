@@ -1,13 +1,11 @@
-// Spatial index over infrastructure segments + port zones. O(1)-ish point queries.
-import { readFileSync } from 'node:fs';
+// Spatial index over infrastructure segments + port zones. O(1)-ish point queries. Pure: works in Node and browser.
 import { pointSegNm, distNm } from './geo.js';
 
 const CELL = 0.05;
 export const CORRIDOR_NM = 1.5;
 const key = (x, y) => `${x},${y}`;
 
-export function loadCorridors(infraPath, anchPath) {
-  const infra = JSON.parse(readFileSync(infraPath, 'utf8'));
+export function buildCorridors(infra, anchorages) {
   const segs = []; const grid = new Map();
   for (const f of infra.features) {
     const p = f.properties;
@@ -24,7 +22,7 @@ export function loadCorridors(infraPath, anchPath) {
       }
     }
   }
-  const ports = JSON.parse(readFileSync(anchPath, 'utf8')).features.map((f) => ({ name: f.properties.name, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], r: f.properties.radiusNm || 3 }));
+  const ports = anchorages.features.map((f) => ({ name: f.properties.name, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], r: f.properties.radiusNm || 3 }));
 
   /** Nearest infrastructure within ~3 nm: { name, kind, named, id, nm } or null */
   function nearest(lon, lat) {

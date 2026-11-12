@@ -5,7 +5,7 @@ const cesiumSource = 'node_modules/cesium/Build/Cesium';
 const cesiumBaseUrl = 'cesium';
 
 export default defineConfig({
-  define: { CESIUM_BASE_URL: JSON.stringify(`/${cesiumBaseUrl}`) },
+  base: process.env.BASE_PATH || '/',
   plugins: [
     viteStaticCopy({
       targets: [
@@ -20,6 +20,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: true } },
+    fs: { allow: ['..'] },
   },
   build: { chunkSizeWarningLimit: 6000, outDir: 'dist', emptyOutDir: true },
   worker: { format: 'es' },

@@ -1,8 +1,7 @@
-# Deploys to Fly.io on every push to main. Needs repo secret FLY_API_TOKEN (fly tokens create deploy).
-name: deploy
+# Optional: full server mode on Fly.io (persistent 48 h archive, aisstream support). Manual trigger.
+# To deploy on every push instead, add `push: { branches: [main] }` below. Needs secret FLY_API_TOKEN.
+name: deploy-fly
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 concurrency: deploy
 jobs:

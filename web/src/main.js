@@ -1,7 +1,9 @@
-import './base.js';
+import { asset } from './base.js';
+import { createDataSource } from './datasource.js';
 import './styles.css';
 import { createGlobe, REGIONS, kmBetween } from './globe.js';
 import GliderWorker from './glider.worker.js?worker';
+const ds = createDataSource();
 
 // ---------------------------------------------------------------- constants
 const SIGNALS = {
@@ -642,8 +644,7 @@ async function openDossier(mmsi) {
   d.innerHTML = dossierHTML(v0, null, null, true);
   let data = null;
   try {
-    const r = await fetch(`/api/vessel/${mmsi}`);
-    if (r.ok) data = await r.json();
+    data = await ds.vessel(mmsi);
   } catch {}
   if (state.selectedMmsi !== mmsi) return;
   const v = data?.vessel || v0;
@@ -787,8 +788,8 @@ async function getJSON(url) {
 
 let coastLoaded = false;
 async function loadStatic() {
-  if (!coastLoaded) getJSON('/geo/coast.json').then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
-  const [infra, incidents, grid] = await Promise.all([getJSON('/data/infra.geojson'), getJSON('/data/incidents.json'), getJSON('/data/grid.json')]);
+  if (!coastLoaded) getJSON(asset('geo/coast.json')).then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
+  const [infra, incidents, grid] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json'))]);
   if (infra && infra.features) {
     state.infra = infra;
     globe.setInfra(infra);
@@ -854,7 +855,7 @@ function applyAlert(a) {
 }
 
 async function loadSnapshot() {
-  const s = await getJSON('/api/snapshot');
+  const s = await ds.snapshot();
   if (!s) return false;
   state.lastSnapshot = Date.now();
   state.feeds = s.feeds || null;
@@ -873,46 +874,25 @@ async function loadSnapshot() {
 }
 
 function connectStream() {
-  let es;
-  try { es = new EventSource('/api/stream'); } catch { return; }
-  es.onopen = () => { state.sseOk = true; renderSources(); renderTop(); };
-  es.onerror = () => { state.sseOk = false; renderSources(); renderTop(); };
-  es.addEventListener('vessels', (e) => {
-    const d = JSON.parse(e.data);
-    applyVessels(d.upd, d.del);
-    throttledRender();
-  });
-  es.addEventListener('alert', (e) => {
-    applyAlert(JSON.parse(e.data));
-    renderAlerts();
-    renderMeters();
-    if (state.selectedAlert) renderShouldnt();
-  });
-  es.addEventListener('alert_clear', (e) => {
-    const { id } = JSON.parse(e.data);
-    state.alerts.delete(id);
-    if (state.selectedAlert === id) { state.selectedAlert = null; renderShouldnt(); globe.setTasking(null); }
-    renderAlerts();
-  });
-  es.addEventListener('stats', (e) => {
-    state.stats = JSON.parse(e.data);
-    pushHist();
-    renderTiles();
-    renderMeters();
-    renderTop();
-  });
-  es.addEventListener('feeds', (e) => {
-    state.feeds = JSON.parse(e.data);
-    renderSources();
-    renderTop();
-    renderLayers();
-  });
-  es.addEventListener('heat', (e) => {
-    state.heat = JSON.parse(e.data);
-    if (gliderWorker) {
-      gliderWorker.postMessage({ type: 'heat', grid: state.grid?.cells?.length ? state.grid : deriveGrid(), heat: state.heat });
-      queryGliders();
-    }
+  ds.subscribe({
+    open: () => { state.sseOk = true; renderSources(); renderTop(); },
+    error: () => { state.sseOk = false; renderSources(); renderTop(); },
+    vessels: (d) => { applyVessels(d.upd, d.del); throttledRender(); },
+    alert: (a) => { applyAlert(a); renderAlerts(); renderMeters(); if (state.selectedAlert) renderShouldnt(); },
+    alert_clear: ({ id }) => {
+      state.alerts.delete(id);
+      if (state.selectedAlert === id) { state.selectedAlert = null; renderShouldnt(); globe.setTasking(null); }
+      renderAlerts();
+    },
+    stats: (st) => { state.stats = st; pushHist(); renderTiles(); renderMeters(); renderTop(); },
+    feeds: (f) => { state.feeds = f; renderSources(); renderTop(); renderLayers(); },
+    heat: (h) => {
+      state.heat = h;
+      if (gliderWorker) {
+        gliderWorker.postMessage({ type: 'heat', grid: state.grid?.cells?.length ? state.grid : deriveGrid(), heat: state.heat });
+        queryGliders();
+      }
+    },
   });
 }
 
