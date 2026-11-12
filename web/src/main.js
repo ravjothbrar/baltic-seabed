@@ -1143,7 +1143,11 @@ if (params.has('nohero')) {
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
   if (!HOLD) setTimeout(exitHero, INTRO_MS);
 }
-setInterval(() => { const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
+setInterval(() => {
+  if (state.vessels.size) document.querySelectorAll('[data-hero="ships"]').forEach((n) => { n.textContent = fmt(state.vessels.size); });
+  if (state.incidents?.length) document.querySelectorAll('[data-hero="inc"]').forEach((n) => { n.textContent = state.incidents.length; });
+  if (heroGlobe && state.vessels.size) heroGlobe.setFocusShips?.([...state.vessels.values()].filter((v) => v.level && v.lat != null));
+}, 500);
 
 globe.on('camera', (c) => {
   $('#h-cam').textContent = `${Math.abs(c.lat).toFixed(3)}°${c.lat >= 0 ? 'N' : 'S'}  ${Math.abs(c.lon).toFixed(3)}°${c.lon >= 0 ? 'E' : 'W'}`;

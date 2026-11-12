@@ -43,7 +43,7 @@ jobs:
         run: node --no-warnings scripts/build-history.mjs web/dist/data/history.json
         env:
           PREV_URL: ${{ steps.pages.outputs.base_url }}/data/history.json
-          SAMPLES: ${{ github.event_name == 'schedule' && '10' || '1' }}
+          SAMPLES: ${{ github.event_name == 'schedule' && '10' || '3' }}
           AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
       - name: Satellite radar detections (daily; needs GFW_API_TOKEN)
         run: node --no-warnings scripts/build-sar.mjs web/dist/data/sar.json

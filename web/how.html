@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>How it works · Baltic Seabed Watch</title>
   <meta name="description" content="How Baltic Seabed Watch fuses public AIS, sanctions lists and seabed infrastructure into explainable signals, and what it cannot see." />
-  <meta name="theme-color" content="#05080b" />
+  <meta name="theme-color" content="#000000" />
   <meta property="og:type" content="article" />
   <meta property="og:title" content="How it works · Baltic Seabed Watch" />
   <meta property="og:description" content="Seven explainable signals over public data, an honest list of what they can't prove, and why the gap is underwater." />
@@ -19,19 +19,50 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preload" href="fonts/archivo-cond.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/plexmono-400.woff2" as="font" type="font/woff2" crossorigin />
 </head>
 <body class="how">
   <header class="h-top">
-    <a class="h-brand" href="./">BALTIC <b>SEABED</b> WATCH</a>
+    <a class="h-brand" href="./"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#e2533f"/></svg><span>BALTIC SEABED WATCH</span></a>
     <nav><a href="#architecture">Architecture</a><a href="#signals">Signals</a><a href="#limits">Limits</a><a href="#brief">Brief</a><a class="h-open" href="./"><span class="h-full">Open the live map</span><span class="h-short">Live map</span> →</a></nav>
   </header>
 
   <main>
     <section class="h-hero">
-      <div class="h-k">HOW IT WORKS</div>
-      <h1>Watching the seabed<br />from the surface.</h1>
-      <p class="h-lede">Baltic Seabed Watch is a live map of the ships moving over the Baltic's undersea cables and pipelines. It fuses public ship tracking, sanctions lists and infrastructure routes into a small set of explainable signals. Every flag carries the reasons it is probably innocent, because surface data alone has never settled one of these cases. The last layer shows what listening below the surface would add.</p>
+      <div class="h-sub">How Baltic Seabed Watch works</div>
+      <h1 class="h-word" aria-label="Method"><span><span>M</span></span><span><span>E</span></span><span><span>T</span></span><span><span>H</span></span><span><span>O</span></span><span><span>D</span></span></h1>
+    </section>
+
+    <section class="h-intro">
+      <div></div>
+      <div>
+        <p class="h-lede">Ships, cables and sanctions lists are all public. The Baltic's undersea cables and pipelines keep getting damaged, and every case so far has turned on the same thin evidence: a ship's self-reported track passing over a line on the seabed.</p>
+        <p class="h-lede">Baltic Seabed Watch fuses that public data into a small set of explainable signals. Every flag carries the reasons it is probably innocent, because surface data alone has never settled one of these cases. The last layer shows what persistent listening below the surface would add.</p>
+        <div class="h-stats">
+          <div><small>Ships tracked live in the Baltic</small><b>&gt; <span id="s-ships">700</span></b></div>
+          <div><small>Undersea cable &amp; pipeline length mapped</small><b><span id="s-km">17,400</span> km</b></div>
+          <div><small>Suspected damage incidents since 2022</small><b id="s-inc">7</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="h-work" id="work">
+      <div class="h-work-head">
+        <h2 class="h-cap">Baltic Seabed Watch puts every public signal to work</h2>
+        <p>Five layers run side by side over the same live picture. Each does one job, and each says what it can't prove.</p>
+      </div>
+      <div class="h-work-grid">
+        <ol class="h-acc" id="h-acc">
+          <li class="on" data-shot="watch"><button type="button" aria-expanded="true"><em>01</em><span>Wide-area watch</span></button><div class="h-acc-b"><p>About 700 ships across the northern Baltic, live from Fintraffic's open AIS feed, with the whole sea refreshed every 15 minutes. Every cable, pipeline and power line is indexed with a 1.5 nm corridor, so each position is checked against the seabed the moment it arrives.</p></div></li>
+          <li data-shot="signals"><button type="button" aria-expanded="false"><em>02</em><span>Signals</span></button><div class="h-acc-b"><p>Seven plain rules (loitering, drag-like slowdowns, slow crossings, AIS gaps, sanctions listings, flags and route profile) combine into WATCH, ELEVATED or HIGH. Identity alone never escalates. Click any alert to open the ship's dossier and track.</p></div></li>
+          <li data-shot="honesty"><button type="button" aria-expanded="false"><em>03</em><span>Honesty</span></button><div class="h-acc-b"><p>Next to every flag: weather, the nearest port zone, the ship's declared destination, receiver coverage and how often the rule fires innocently. "What you shouldn't conclude" is a first-class panel, not a footnote.</p></div></li>
+          <li data-shot="incidents"><button type="button" aria-expanded="false"><em>04</em><span>History &amp; incidents</span></button><div class="h-acc-b"><p>Seven suspected damage cases since 2022 (Nord Stream, Balticconnector, Estlink 2 and more), each field sourced, each with how it actually ended. Most did not end in a finding.</p></div></li>
+          <li data-shot="gliders"><button type="button" aria-expanded="false"><em>05</em><span>Glider coverage</span></button><div class="h-acc-b"><p>A simulation of what a few hundred autonomous underwater gliders, tasked by one operator, would add: corridor coverage weighted by cable length, live traffic and depth, with every assumption printed on screen.</p></div></li>
+        </ol>
+        <figure class="h-shot" id="h-shot"><img src="shots/watch.webp" alt="Live flat map of the Baltic with ships and seabed lines" width="1200" height="760" decoding="async" /></figure>
+      </div>
     </section>
 
     <section class="h-sec" id="architecture">
