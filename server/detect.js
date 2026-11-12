@@ -30,7 +30,8 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
   const [lon, lat] = last;
   const corr = corridors.corridor(lon, lat);
   const port = corridors.nearestPort(lon, lat);
-  const inPort = port && port.nm <= T.PORT_NM;
+  const inPort = port && port.inside;
+  const waiting = /FOR ORDERS|ORDERS|ANCHORAGE|ANCH\b|WAITING|\bOPL\b|DRIFTING/i.test(v.dest || '');
   const work = WORK_TYPES.has(v.type);
   const gale = weather && ((weather.windKn ?? 0) >= T.GALE_KN || (weather.waveM ?? 0) >= T.WAVE_M);
 
@@ -42,11 +43,11 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
   let i = track.length - 1;
   while (i >= 0 && track[i][3] < T.LOITER_SOG && corridors.corridor(track[i][0], track[i][1])) i--;
   const loiterMin = i < track.length - 1 ? (last[2] - track[i + 1][2]) / 60e3 : 0;
-  if (corr && loiterMin >= T.LOITER_MIN && !inPort) {
+  if (corr && loiterMin >= T.LOITER_MIN && !inPort && last[5] !== 5) { // nav 5 = moored at a berth
     const anchored = last[5] === 1;
     signals.push(sig('LOITER', anchored ? 'moderate' : 'weak',
       `${Math.round(loiterMin)} min at < ${T.LOITER_SOG} kn within ${corr.nm.toFixed(1)} nm of ${corr.name}${anchored ? ' · nav status AT ANCHOR' : ''}`,
-      work ? `vessel type ${v.typeLabel} routinely works slowly` : gale ? `weather: ${fmtWx(weather)}` : null));
+      work ? `vessel type ${v.typeLabel} routinely works slowly` : v.type >= 60 && v.type <= 69 ? 'passenger ferries wait at terminals and quays' : waiting ? `declared destination "${v.dest}" says it is waiting` : gale ? `weather: ${fmtWx(weather)}` : null));
   }
 
   // ── DRAG: in-corridor stretch, under way, speed well below own median, ≥ 2 km
@@ -128,10 +129,10 @@ function caveats(signals, ctx, v) {
   const out = [];
   for (const s of signals) out.push(`${s.label}: ${SIGNAL_INFO[s.id].why}`);
   if (ctx.nearestAnchorage) out.push(`Nearest port/anchorage zone: ${ctx.nearestAnchorage.name}, ${ctx.nearestAnchorage.nm} nm away. Waiting for a berth or pilot looks exactly like this.`);
+  if (/ORDERS|ANCH|WAITING|OPL/i.test(v.dest || '')) out.push(`Declared destination "${v.dest}": tankers often anchor in the open Gulf waiting for orders. That is commercial routine, and it puts anchors near cables.`);
   if (ctx.windKn != null) out.push(`Weather here now: ${fmtWx(ctx)}.${ctx.windKn >= 25 ? ' Ships routinely slow or heave-to in these conditions.' : ''}`);
   if (ctx.peers != null) out.push(`AIS coverage: ${ctx.peers} other ships within 10 nm reported in the last 10 min. The coverage here comes from Finnish coastal receivers and it is patchy.`);
   out.push('Eagle S (Estlink 2, 2024): seabed drag marks were found, yet a district court dismissed the case in Oct 2025 (an appeal court sent it back for trial in Aug 2026). Yi Peng 3: no conclusive evidence of deliberate dragging. Even strong-looking cases are hard to prove.');
   out.push('AIS is self-reported, can be spoofed or switched off, and sees nothing below the surface. No alert here is evidence of intent.');
-  void v;
   return out;
 }

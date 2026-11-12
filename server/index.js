@@ -89,22 +89,32 @@ function onStatic(mmsi, s) {
 
 // ── weather (lazy, cached per 1° cell) ───────────────────────────────────────
 const wx = new Map();
-async function weatherAt(lon, lat) {
-  const k = `${Math.round(lon)},${Math.round(lat)}`; const c = wx.get(k);
-  if (c && Date.now() - c.t < 30 * 60e3) return c.v;
-  if (c?.pending) return c.v;
-  wx.set(k, { ...(c || {}), pending: true, t: c?.t || 0, v: c?.v || null });
+// One batched Open-Meteo call for every 1° Baltic water cell (avoids per-point rate limits).
+const WX_CELLS = [];
+for (let lon = 10; lon <= 30; lon += 2) for (let lat = 54; lat <= 66; lat += 2) if (inBaltic([lon, lat])) WX_CELLS.push([lon, lat]);
+async function refreshWeather() {
   try {
+    const lats = WX_CELLS.map((c) => c[1]).join(','), lons = WX_CELLS.map((c) => c[0]).join(',');
     const [a, b] = await Promise.all([
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${Math.round(lat)}&longitude=${Math.round(lon)}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`, { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : null)),
-      fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${Math.round(lat)}&longitude=${Math.round(lon)}&current=wave_height`, { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`, { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lons}&current=wave_height`, { headers: { 'User-Agent': UA } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
-    const v = a?.current ? { windKn: a.current.wind_speed_10m, windDir: a.current.wind_direction_10m, waveM: b?.current?.wave_height ?? null } : null;
-    wx.set(k, { t: Date.now(), v }); if (v) { feeds.weather.ok = true; feeds.weather.last = Date.now(); }
-    return v;
-  } catch { wx.set(k, { t: Date.now(), v: c?.v || null }); return c?.v || null; }
+    const A = Array.isArray(a) ? a : a ? [a] : [], B = Array.isArray(b) ? b : b ? [b] : [];
+    if (!A.length) throw new Error('no data');
+    WX_CELLS.forEach(([lon, lat], i) => {
+      const cur = A[i]?.current; if (!cur) return;
+      wx.set(`${lon},${lat}`, { t: Date.now(), v: { windKn: cur.wind_speed_10m, windDir: cur.wind_direction_10m, waveM: B[i]?.current?.wave_height ?? null } });
+    });
+    feeds.weather.ok = true; feeds.weather.last = Date.now(); feeds.weather.cells = wx.size;
+  } catch (e) { feeds.weather.ok = false; console.warn('weather', e.message); setTimeout(refreshWeather, 15 * 60e3); }
 }
-const wxCached = (lon, lat) => wx.get(`${Math.round(lon)},${Math.round(lat)}`)?.v || null;
+// Nearest cell with data (a ship's rounded cell may be over land).
+function wxNear(lon, lat) {
+  let best = null, bd = 9;
+  for (const [k, c] of wx) { const [x, y] = k.split(',').map(Number); const d = Math.abs(x - lon) + Math.abs(y - lat); if (d < bd) { bd = d; best = c.v; } }
+  return bd <= 3 ? best : null;
+}
+const wxCached = (lon, lat) => wxNear(lon, lat);
 
 // ── detection ────────────────────────────────────────────────────────────────
 function peersNear(v, now) {
@@ -121,8 +131,6 @@ function evalVessel(v, now = Date.now()) {
   const r = evaluate({ vessel: v, track, now, corridors, weather: wxCached(v.lon, v.lat), watch: v.watch, peers: silent ? peersNear(v, now) : null });
   const prev = alerts.get(v.mmsi);
   if (r?.level) {
-    const wk = `${Math.round(v.lon)},${Math.round(v.lat)}`;
-    if (!wx.has(wk)) weatherAt(v.lon, v.lat).then((w) => { if (w) evalVessel(v); });
     const a = {
       id: prev?.id || `${v.mmsi}-${now}`, mmsi: v.mmsi, name: v.name, imo: v.imo, flag: v.flag, typeLabel: v.typeLabel, level: r.level, asset: r.asset,
       lat: v.lat, lon: v.lon, firstSeen: prev?.firstSeen || now, lastSeen: now, signals: r.signals,
@@ -259,7 +267,7 @@ setInterval(() => {
   lastSweepMs = Date.now() - t0;
 }, 30000);
 setInterval(() => { try { db.prepare('DELETE FROM positions WHERE ts < ?').run(Date.now() - 48 * 3600e3); } catch {} }, 3600e3);
-setInterval(() => weatherAt(25, 60), 15 * 60e3);
+setInterval(refreshWeather, 60 * 60e3);
 
 // Warm tracks from the archive so slowdowns vs. "usual speed" work right after a restart.
 for (const r of db.prepare('SELECT mmsi, ts, lon, lat, sog, cog, nav FROM positions WHERE ts > ? ORDER BY ts').all(Date.now() - TRACK_MS)) {
@@ -271,5 +279,5 @@ await pollDigitraffic();
 setInterval(pollDigitraffic, 10000);
 setInterval(pollDigitrafficMeta, 10 * 60e3);
 connectAisstream();
-weatherAt(25, 60);
+refreshWeather().then(() => { for (const v of vessels.values()) if (v.lat != null) evalVessel(v); });
 app.listen(PORT, () => console.log(`Baltic Seabed Watch on :${PORT} · ${liveVessels().length} vessels · ${corridors.segCount} infra segments · watchlist ${feeds.watchlist.count}`));

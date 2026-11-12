@@ -36,7 +36,7 @@ const state = {
   lastSnapshot: 0,
   lastVesselMsg: 0,
   sseOk: false,
-  glider: { N: 0, R: 8, res: null },
+  glider: { N: 120, R: 8, res: null },
   start: Date.now(),
   inView: 0,
 };
@@ -178,13 +178,13 @@ document.body.insertAdjacentHTML('beforeend', `
     <div class="hero-top"><span>BALTIC SEABED WATCH</span><span>OPEN-SOURCE MARITIME AWARENESS</span><span id="hero-utc">—</span></div>
     <div class="hero-mid">
       <div class="hero-k"><span class="hero-dot"></span>LIVE · <span id="hero-n">—</span> SHIPS · <span id="hero-km">—</span> KM OF MAPPED SEABED LINES</div>
-      <h1>The seabed is the<br/>new front line.</h1>
+      <h1><span>The seabed is the</span><span>new front line.</span></h1>
       <p>Ships, cables and pipelines across the Baltic, watched live from public data. It flags the patterns, says how weak they are, and shows what persistent underwater sensing would add.</p>
       <button class="hero-go" id="hero-go">ENTER <span>▸</span></button>
     </div>
     <div class="hero-foot">
       <span>01 · LIVE AIS</span><span>02 · CABLES &amp; PIPELINES</span><span>03 · SANCTIONS LISTS</span><span>04 · INCIDENT LOG</span><span>05 · GLIDER COVERAGE (SIM)</span>
-      <span class="sp"></span><span>CLICK, SCROLL OR PRESS ANY KEY</span>
+      <span class="sp"></span><span>CLICK, SCROLL OR PRESS ANY KEY</span><span class="hero-tap">TAP ANYWHERE TO ENTER</span>
     </div>
     <div class="hero-bar"><i></i></div>
   </div>
@@ -290,7 +290,7 @@ function renderTiles() {
     if (d.k === 'wind') {
       const v = t.querySelector('.v');
       v.textContent = vals.wind == null ? '—' : `${Math.round(vals.wind)} kn`;
-      t.querySelector('.s').textContent = vals.wind == null ? 'weather feed pending' : vals.wind >= 30 ? 'gale: slow speed is normal' : 'Gulf of Finland';
+      t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'weather feed pending') : vals.wind >= 30 ? 'gale: slow speed is normal' : 'Gulf of Finland';
     } else setNum(t.querySelector('.v'), vals[d.k]);
     if (d.k === 'alerts' && s) t.querySelector('.s').textContent = `${s.alerts?.WATCH || 0} · ${s.alerts?.ELEVATED || 0} · ${s.alerts?.HIGH || 0}`;
     const h = state.hist[d.k];
@@ -323,7 +323,7 @@ function layerMeta(k) {
       return { n: state.vessels.size, src: `${srcs.join(' · ') || 'AIS'} · ${last ? ago(last) : 'waiting'}` };
     }
     case 'telecom': return { n: infraCount('telecom'), src: infraSrc('telecom') };
-    case 'power': return { n: infraCount('power'), src: infraSrc('power') };
+    case 'power': return { n: infraCount('power'), src: `${infraSrc('power')} · DE waters only` };
     case 'pipeline': return { n: infraCount('pipeline'), src: infraSrc('pipeline') };
     case 'incidents': return { n: state.incidents.length, src: 'hand-curated · sourced' };
     case 'gliders': return { n: state.glider.N, src: `simulation · R ${state.glider.R} km` };
@@ -525,13 +525,15 @@ function renderIncidents() {
     el.innerHTML = `<div class="empty">Incident log is being verified against sources.<br/>Rows appear here only once each is cited.</div>`;
     return;
   }
-  const note = state.incidentNote ? `<div class="empty" style="padding:2px 4px 8px;color:var(--amber)">${esc(state.incidentNote)}</div>` : '';
+  const verified = list.some((i) => i.verification);
+  const note = `<div class="incnote" title="${esc(state.incidentNote || '')}">Sources <b>${verified ? 'search-verified' : 'cited'}</b> · see links</div>`;
   el.innerHTML = note + list.map((i) => `
-    <button class="inc" data-id="${esc(i.id)}">
+    <div class="inc" role="button" tabindex="0" data-id="${esc(i.id)}">
       <span class="dt">${esc((i.date || '').slice(0, 10))}</span>
-      <span><div class="ti">${esc(i.title)}</div><div class="ve">${i.vessel?.name ? esc(i.vessel.name) + (i.vessel.flag ? ' · ' + esc(i.vessel.flag) : '') : 'no vessel identified'}</div><div class="oc">${esc(i.outcome || '')}</div></span>
+      <span><div class="ti">${esc(i.title)}</div><div class="ve">${i.vessel?.name ? esc(i.vessel.name) + (i.vessel.flag ? ' · ' + esc(i.vessel.flag) : '') : 'no vessel identified'}</div><div class="oc">${esc(i.outcome || '')}</div>
+      <div class="lk">${(i.sources || []).slice(0, 3).map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.label || 'source')} ↗</a>`).join('')}</div></span>
       <span class="ost" data-s="${esc(i.outcomeStatus || '')}">${esc(i.outcomeStatus || '—')}</span>
-    </button>`).join('');
+    </div>`).join('');
 }
 
 function renderGlider() {
@@ -543,9 +545,9 @@ function renderGlider() {
     el.innerHTML = `
       <div class="gl">
         <div class="ctl">
-          <div class="sl"><div class="lb"><span>GLIDERS · N</span><b id="g-n">0</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="0"/></div>
-          <div class="sl"><div class="lb"><span>DETECT RADIUS · R</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
-          <div class="sl"><div class="lb"><span>CORRIDOR COVERAGE</span><b id="g-cov2" style="color:var(--violet)">0%</b></div><div class="covbar"><i id="g-bar" style="width:0%"></i></div></div>
+          <div class="sl"><div class="lb"><span>GLIDERS N</span><b id="g-n">120</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="120"/></div>
+          <div class="sl"><div class="lb"><span>RADIUS R</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
+          <div class="sl"><div class="lb"><span>CORRIDORS</span><b id="g-cov2" style="color:var(--violet)">0%</b></div><div class="covbar"><i id="g-bar" style="width:0%"></i></div></div>
         </div>
         <div class="ro">
           <div><span>COVERAGE</span><b id="g-cov">0.0%</b></div>
@@ -553,7 +555,7 @@ function renderGlider() {
           <div><span>OPERATORS</span><b class="v">1</b></div>
           <div><span>ENDURANCE</span><b>≤3 mo</b></div>
         </div>
-        <div class="as"><b>ASSUMPTIONS (SIM):</b> R is an <b>assumed</b> passive-acoustic detection radius, not a published spec. Placement is greedy max-coverage over ~5 km cells weighted by cable km × live traffic × 3 for named assets. Shallow cells (&lt;25 m) are down-weighted. 1 operator and ≤3-month endurance are Helsing's public SG-1 Fathom claims. No Helsing data is used.</div>
+        <div class="as"><b>ASSUMPTIONS (SIM):</b> R is an <b>assumed</b> passive-acoustic detection radius, not a published spec. Placement is greedy max-coverage over ~5 km cells weighted by cable km × live traffic × 3 for named assets. <span id="g-depth">Depth not modelled.</span> 1 operator and ≤3-month endurance are Helsing's public SG-1 Fathom claims. No Helsing data is used.</div>
       </div>`;
     const nr = $('#g-nr'), rr = $('#g-rr');
     const upd = () => {
@@ -591,12 +593,15 @@ function renderSources() {
   rows.push({ n: 'AISStream', s: 'global AIS · needs key', st: f.aisstream?.enabled ? (live(f.aisstream) ? 'ok' : 'bad') : 'off', a: f.aisstream?.enabled ? `${fmt(f.aisstream.count)} · ${ago(f.aisstream.last)}` : 'no key set' });
   rows.push({ n: 'Open-Meteo', s: 'wind & waves · context', st: f.weather ? (live(f.weather) ? 'ok' : 'warn') : 'off', a: f.weather ? ago(f.weather.last) : 'pending' });
   rows.push({ n: 'OpenSanctions', s: 'maritime watchlist', st: f.watchlist ? (live(f.watchlist) ? 'ok' : 'warn') : 'off', a: f.watchlist ? `${fmt(f.watchlist.count)} · ${f.watchlist.updated ? ago(f.watchlist.updated) : ''}` : 'pending' });
-  rows.push({ n: 'Infrastructure', s: 'EMODnet · TeleGeography · OSM', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.length)} lines` : 'not loaded' });
+  rows.push({ n: 'Telecom cables', s: 'TeleGeography · public cable map', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'telecom').length)} lines` : 'not loaded' });
+  rows.push({ n: 'Pipelines', s: 'EMODnet Human Activities', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'pipeline').length)} lines` : 'not loaded' });
+  rows.push({ n: 'Power cables', s: 'EMODnet · German waters only', gap: 'GAP: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'power').length)} lines` : 'not loaded' });
+  rows.push({ n: 'Bathymetry', s: 'glider depth mask', gap: 'GAP: depth not modelled', st: 'off', a: 'not used' });
   rows.push({ n: 'Incident log', s: 'hand-curated · every row cited', st: state.incidents.length ? 'ok' : 'off', a: state.incidents.length ? `${state.incidents.length} rows` : 'pending' });
   rows.push({ n: 'Live stream', s: 'SSE · this server', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'connected' : 'offline' });
   const ok = rows.filter((r) => r.st === 'ok').length;
   $('#t-src').textContent = `${ok}/${rows.length} OK`;
-  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small></span><span class="a">${r.a}</span></div>`).join('');
+  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small>${r.gap ? `<small class="gap">${r.gap}</small>` : ''}</span><span class="a">${r.a}</span></div>`).join('');
 }
 
 function renderTop() {
@@ -633,6 +638,7 @@ async function openDossier(mmsi) {
   const d = $('#dossier');
   const v0 = state.vessels.get(mmsi);
   d.classList.add('on');
+  document.body.classList.add('dossier-on');
   d.innerHTML = dossierHTML(v0, null, null, true);
   let data = null;
   try {
@@ -649,6 +655,7 @@ async function openDossier(mmsi) {
 function closeDossier() {
   state.selectedMmsi = null;
   $('#dossier').classList.remove('on');
+  document.body.classList.remove('dossier-on');
   globe.clearTrack();
 }
 function dossierHTML(v, track, alert, loading) {
@@ -792,7 +799,12 @@ async function loadStatic() {
     state.incidentNote = incidents?.note || null;
     globe.setIncidents(incList);
   }
-  if (grid && grid.cells) state.grid = grid;
+  if (grid && grid.cells) {
+    state.grid = grid;
+    const allOk = grid.cells.every((c) => c[4] !== 0);
+    const gd = $('#g-depth');
+    if (gd) gd.textContent = allOk ? 'Depth not modelled (no bathymetry mask in this build).' : 'Shallow cells (<25 m) are down-weighted.';
+  }
   if (state.infra) {
     let km = 0;
     for (const f of state.infra.features) {
@@ -1070,6 +1082,7 @@ document.addEventListener('click', (e) => {
     }
     return;
   }
+  if (t.closest('a[href]')) return;
   const inc = t.closest('.inc[data-id]');
   if (inc) { flyIncident(inc.dataset.id); if (MOBILE()) $('#sheet').classList.add('min'); return; }
   const lg = t.closest('.lg[data-k]');

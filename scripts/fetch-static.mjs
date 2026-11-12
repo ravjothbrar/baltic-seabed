@@ -88,6 +88,11 @@ const ports = await getJSON(EMOD('portlocations'));
 const anch = ports.features
   .filter((f) => f.geometry && inBaltic(f.geometry.coordinates))
   .map((f) => ({ type: 'Feature', properties: { name: f.properties.portname || f.properties.port, country: f.properties.country, radiusNm: 3 }, geometry: { type: 'Point', coordinates: f.geometry.coordinates.map((v) => +v.toFixed(4)) } }));
+// EMODnet covers EU ports only. Add Russian Baltic ports as approximate reference points (port areas, not anchorage
+// polygons) with a wider radius, since tankers wait at roadsteads several nm offshore.
+const RU_PORTS = [['Primorsk', 28.65, 60.33], ['Vysotsk', 28.55, 60.62], ['Ust-Luga', 28.35, 59.70], ['St Petersburg', 30.10, 59.90],
+  ['Kronshtadt', 29.75, 59.99], ['Kaliningrad', 20.40, 54.70], ['Baltiysk', 19.88, 54.64]];
+for (const [name, lon, lat] of RU_PORTS) anch.push({ type: 'Feature', properties: { name, country: 'RU', radiusNm: 8, source: 'manual reference point (approx.)' }, geometry: { type: 'Point', coordinates: [lon, lat] } });
 await writeFile(new URL('anchorages.geojson', OUT), JSON.stringify({ type: 'FeatureCollection', note: 'Port points from EMODnet; treated as 3 nm port/anchorage zones', features: anch }));
 console.log('  ports:', anch.length);
 

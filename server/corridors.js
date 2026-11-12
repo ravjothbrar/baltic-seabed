@@ -24,7 +24,7 @@ export function loadCorridors(infraPath, anchPath) {
       }
     }
   }
-  const ports = JSON.parse(readFileSync(anchPath, 'utf8')).features.map((f) => ({ name: f.properties.name, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+  const ports = JSON.parse(readFileSync(anchPath, 'utf8')).features.map((f) => ({ name: f.properties.name, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], r: f.properties.radiusNm || 3 }));
 
   /** Nearest infrastructure within ~3 nm: { name, kind, named, id, nm } or null */
   function nearest(lon, lat) {
@@ -44,7 +44,7 @@ export function loadCorridors(infraPath, anchPath) {
     for (const p of ports) {
       if (Math.abs(p.lat - lat) > 0.6) continue;
       const d = distNm(lon, lat, p.lon, p.lat);
-      if (!best || d < best.nm) best = { name: p.name, nm: +d.toFixed(1) };
+      if (!best || d - p.r < best.nm - best.r) best = { name: p.name, nm: +d.toFixed(1), r: p.r, inside: d <= p.r };
     }
     return best;
   }

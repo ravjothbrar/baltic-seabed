@@ -18,7 +18,7 @@ const COL = {
 };
 
 export const REGIONS = {
-  BALTIC: { lon: 20.6, lat: 58.4, range: 1650000, pitch: -50 },
+  BALTIC: { lon: 20.2, lat: 57.6, range: 1500000, pitch: -52 },
   'GULF OF FINLAND': { lon: 25.4, lat: 59.75, range: 380000, pitch: -48 },
   'ÅLAND': { lon: 20.2, lat: 60.0, range: 300000, pitch: -50 },
   GOTLAND: { lon: 18.6, lat: 57.3, range: 380000, pitch: -50 },
@@ -59,6 +59,11 @@ const ICON_GLIDER = canvasIcon((g, s) => {
   g.closePath();
   g.fill();
 }, 24);
+
+function shortTitle(t = '') {
+  const s = t.split(/[,(]| cable| pipeline/i)[0].trim();
+  return (s.length > 26 ? s.slice(0, 25) + '…' : s).toUpperCase();
+}
 
 function densify(coords, maxKm = 15) {
   const out = [];
@@ -118,15 +123,15 @@ export function createGlobe(container) {
   const scene = viewer.scene;
   const globe = scene.globe;
   const base = viewer.imageryLayers.get(0);
-  base.brightness = 0.42;
-  base.contrast = 1.6;
-  base.saturation = 0.25;
-  base.hue = 0.02;
-  base.gamma = 1.25;
+  base.brightness = 0.4;
+  base.contrast = 1.4;
+  base.saturation = 0.18;
+  base.hue = 0.0;
+  base.gamma = 1.2;
 
   globe.baseColor = C.fromCssColorString('#02070a');
   globe.showGroundAtmosphere = true;
-  globe.atmosphereLightIntensity = 14;
+  globe.atmosphereLightIntensity = 9;
   globe.atmosphereHueShift = 0.02;
   globe.atmosphereBrightnessShift = -0.15;
   globe.enableLighting = false;
@@ -214,10 +219,10 @@ export function createGlobe(container) {
         const positions = Cesium.Cartesian3.fromDegreesArrayHeights(pts.flatMap(([x, y]) => [x, y, height]));
         infraLines[kind].add({
           positions,
-          width: p.named ? 4.5 : 2.4,
+          width: p.named ? 3.4 : 1.7,
           material: Cesium.Material.fromType('PolylineGlow', {
-            color: color.withAlpha(p.named ? 0.95 : 0.55),
-            glowPower: p.named ? 0.22 : 0.16,
+            color: color.withAlpha(p.named ? 0.95 : 0.5),
+            glowPower: p.named ? 0.2 : 0.12,
             taperPower: 1.0,
           }),
           id: { kind: 'infra', name: p.name, infraKind: kind, named: !!p.named },
@@ -228,14 +233,14 @@ export function createGlobe(container) {
           infraLabels.add({
             position: Cesium.Cartesian3.fromDegrees(mid[0], mid[1], height),
             text: p.name.toUpperCase(),
-            font: '500 10px "JetBrains Mono", monospace',
-            fillColor: color.withAlpha(0.95),
+            font: '500 9px "JetBrains Mono", monospace',
+            fillColor: color.withAlpha(0.8),
             outlineColor: C.BLACK.withAlpha(0.9),
             outlineWidth: 3,
             style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             pixelOffset: new Cesium.Cartesian2(8, -6),
             horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2.2e6),
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 7.5e5),
             scaleByDistance: new Cesium.NearFarScalar(2e5, 1.0, 2.2e6, 0.8),
             id: { kind: 'infra', name: p.name, infraKind: kind, named: true },
           });
@@ -249,25 +254,29 @@ export function createGlobe(container) {
   function setIncidents(list) {
     incidentBB.removeAll();
     incidentLabels.removeAll();
-    for (const inc of list || []) {
-      if (typeof inc.lat !== 'number' || typeof inc.lon !== 'number') continue;
+    const sorted = [...(list || [])].sort((a, b) => (a.lat || 0) - (b.lat || 0));
+    sorted.forEach((inc, idx) => {
+      if (typeof inc.lat !== 'number' || typeof inc.lon !== 'number') return;
+      const left = idx % 2 === 1;
       const pos = Cesium.Cartesian3.fromDegrees(inc.lon, inc.lat, 600);
       incidentBB.add({ position: pos, image: ICON_DIAMOND, scale: 1, id: { kind: 'incident', id: inc.id } });
       incidentLabels.add({
         position: pos,
-        text: `${(inc.date || '').slice(0, 7)}  ${inc.vessel?.name ? inc.vessel.name.toUpperCase() : (inc.title || '').toUpperCase()}`,
+        text: left
+          ? `${inc.vessel?.name ? inc.vessel.name.toUpperCase() : shortTitle(inc.title)}  ${(inc.date || '').slice(0, 7)}`
+          : `${(inc.date || '').slice(0, 7)}  ${inc.vessel?.name ? inc.vessel.name.toUpperCase() : shortTitle(inc.title)}`,
         font: '600 9.5px "JetBrains Mono", monospace',
         fillColor: COL.red.withAlpha(0.95),
         outlineColor: C.BLACK,
         outlineWidth: 3,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(12, 0),
-        horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+        pixelOffset: new Cesium.Cartesian2(left ? -12 : 12, 0),
+        horizontalOrigin: left ? Cesium.HorizontalOrigin.RIGHT : Cesium.HorizontalOrigin.LEFT,
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3.5e6),
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2.2e6),
         id: { kind: 'incident', id: inc.id },
       });
-    }
+    });
     applyVis();
   }
 
@@ -479,9 +488,13 @@ export function createGlobe(container) {
       viewer.camera.flyToBoundingSphere(sphere, { offset, duration, easingFunction: Cesium.EasingFunction.QUINTIC_IN_OUT });
     }
   }
+  function aspectFactor() {
+    const a = scene.canvas.clientWidth / Math.max(1, scene.canvas.clientHeight);
+    return a < 1 ? Math.min(2.1, 0.92 / a) : 1;
+  }
   function flyRegion(name, duration) {
     const r = REGIONS[name];
-    if (r) look(r.lon, r.lat, r.range, r.pitch, duration);
+    if (r) look(r.lon, r.lat - (aspectFactor() > 1 ? 1.2 : 0), r.range * aspectFactor(), r.pitch, duration);
   }
   function flyPoint(lon, lat, range = 160000, duration = 1.8) {
     look(lon, lat, range, -55, duration);
@@ -489,15 +502,20 @@ export function createGlobe(container) {
   let spinning = false;
   function heroStart() {
     // whole-earth view, Baltic slightly above centre, slow spin
-    viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(4, 42, 17500000) });
+    viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(10, 44, 17500000) });
+    // offset the globe from the headline: right on desktop, up on portrait phones
+    const portrait = scene.canvas.clientHeight > scene.canvas.clientWidth;
+    if (portrait) viewer.camera.lookDown(Cesium.Math.toRadians(11.5));
+    else viewer.camera.lookLeft(Cesium.Math.toRadians(9.2));
     spinning = true;
   }
   function heroEnd(onDone) {
     spinning = false;
     const r = REGIONS.BALTIC;
-    const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(r.lon, r.lat, 0), 1);
+    const f = aspectFactor();
+    const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(r.lon, r.lat - (f > 1 ? 1.2 : 0), 0), 1);
     viewer.camera.flyToBoundingSphere(sphere, {
-      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(r.pitch), r.range),
+      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(r.pitch), r.range * f),
       duration: 4.2,
       easingFunction: Cesium.EasingFunction.QUINTIC_IN_OUT,
       complete: onDone,
@@ -565,13 +583,17 @@ export function createGlobe(container) {
     }
   });
 
+  const _scratch = new Cesium.Cartesian2();
+  const toWin = Cesium.SceneTransforms.worldToWindowCoordinates || Cesium.SceneTransforms.wgs84ToWindowCoordinates;
   function countInView() {
-    const rect = viewer.camera.computeViewRectangle(globe.ellipsoid);
-    if (!rect) return vessels.size;
+    const w = scene.canvas.clientWidth, h = scene.canvas.clientHeight;
+    const occ = new Cesium.EllipsoidalOccluder(globe.ellipsoid, viewer.camera.positionWC);
     let n = 0;
     for (const e of vessels.values()) {
-      const c = Cesium.Cartographic.fromDegrees(e.v.lon, e.v.lat);
-      if (Cesium.Rectangle.contains(rect, c)) n++;
+      const p = e.pt.position;
+      if (!occ.isPointVisible(p)) continue;
+      const c = toWin(scene, p, _scratch);
+      if (c && c.x >= 0 && c.y >= 0 && c.x <= w && c.y <= h) n++;
     }
     return n;
   }
