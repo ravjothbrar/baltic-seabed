@@ -360,7 +360,7 @@ function layerMeta(k) {
       return { n: state.vessels.size, src: `${srcs.join(' · ') || 'AIS'} · ${last ? ago(last) : 'waiting'}` };
     }
     case 'telecom': return { n: infraCount('telecom'), src: infraSrc('telecom') };
-    case 'power': return { n: infraCount('power'), src: infraSrc('power').includes('OpenStreetMap') ? infraSrc('power') : `${infraSrc('power')} · DE waters only` };
+    case 'power': return { n: infraCount('power'), src: infraSrc('power').includes('OpenStreetMap') ? `${infraSrc('power')} · partial` : `${infraSrc('power')} · DE waters only` };
     case 'pipeline': return { n: infraCount('pipeline'), src: infraSrc('pipeline') };
     case 'incidents': return { n: state.incidents.length, src: 'hand-curated · sourced' };
     case 'gliders': return { n: state.glider.N, src: `simulation · R ${state.glider.R} km` };
@@ -643,9 +643,15 @@ function renderSources() {
   rows.push({ n: 'Pipelines', s: 'EMODnet Human Activities', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'pipeline').length)} lines` : 'not loaded' });
   const power = state.infra ? state.infra.features.filter((x) => x.properties?.kind === 'power') : [];
   const osmPower = power.some((x) => x.properties?.source === 'OpenStreetMap');
-  rows.push(osmPower
-    ? { n: 'Power cables', s: 'EMODnet + OpenStreetMap', st: 'ok', a: `${fmt(power.length)} lines` }
-    : { n: 'Power cables', s: 'EMODnet · German waters only', gap: 'Gap: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(power.length)} lines` : 'not loaded' });
+  // Major Baltic HVDC links: list whichever are still missing from the open data, by name.
+  const KEY_LINKS = ['Estlink', 'NordBalt', 'Fenno-Skan', 'SwePol', 'Baltic Cable', 'Kontek'];
+  const names = power.map((x) => x.properties?.name || '').join(' | ').toLowerCase();
+  const missing = KEY_LINKS.filter((k) => !names.includes(k.toLowerCase()));
+  rows.push({
+    n: 'Power cables', s: osmPower ? 'EMODnet + OpenStreetMap' : 'EMODnet · German waters only',
+    ...(missing.length ? { gap: `Gap: ${missing.join(', ')} not in reachable open data yet` } : {}),
+    st: !state.infra ? 'off' : missing.length ? 'warn' : 'ok', a: state.infra ? `${fmt(power.length)} lines` : 'not loaded',
+  });
   const depthOn = !!state.grid?.cells?.some((c) => c[4] !== 1);
   rows.push(depthOn
     ? { n: 'Bathymetry', s: 'EMODnet bathymetry · depth mask on', st: 'ok', a: 'glider layer' }
