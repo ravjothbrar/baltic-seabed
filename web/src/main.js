@@ -1,9 +1,11 @@
 import { asset } from './base.js';
 import { createDataSource } from './datasource.js';
 import './styles.css';
-import { createGlobe, REGIONS, kmBetween } from './globe.js';
+import { REGIONS, kmBetween } from './geoutil.js';
+import { createFlatMap } from './flatmap.js';
 import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
+import { renderBrief } from './brief.js';
 const ds = createDataSource();
 
 // ---------------------------------------------------------------- constants
@@ -32,7 +34,8 @@ const state = {
   grid: null,
   selectedAlert: null,
   selectedMmsi: null,
-  layers: { vessels: true, telecom: true, power: true, pipeline: true, incidents: true, gliders: true },
+  layers: { vessels: true, telecom: true, power: true, pipeline: true, incidents: true, gliders: true, sar: true },
+  sar: null, brief: null,
   preset: 'NORMAL',
   region: 'BALTIC',
   hist: { vessels: [], inCorridor: [], watchlist: [], dark: [], alerts: [], msgs: [] },
@@ -68,12 +71,15 @@ document.querySelector('#app').innerHTML = `
   <header class="topbar">
     <div class="brand">${BRAND_SVG}<div class="brand-name">BALTIC <b>SEABED</b> WATCH</div></div>
     <div class="strap"><span class="dot"></span>UNCLASSIFIED // OPEN SOURCE</div>
+    <a class="byline" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
     <div class="top-spacer"></div>
     <span class="chip hide-m">SWEEP<b id="c-sweep">—</b></span>
     <span class="chip hide-m"><b id="c-utc" style="margin:0">—</b></span>
     <span class="chip hide-m">FEEDS<b id="c-feeds">—</b></span>
     <span class="chip hide-m">MSG/MIN<b id="c-msgs">—</b></span>
     <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m">TOUR</span></button>
+    <button class="chip btn" id="b-brief" data-tip="Today's one-page summary" aria-label="Daily brief"><svg class="bb-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke="currentColor" stroke-width="1.2"/></svg><span class="bb-t">DAILY BRIEF</span></button>
+    <a class="chip btn hide-m" id="b-how" href="./how.html">HOW IT WORKS</a>
     <button class="chip btn hide-m" id="b-signals">WHAT SIGNALS MEAN</button>
     <span class="status-pill" id="c-level" data-level="STALE">CONNECTING</span>
   </header>
@@ -101,6 +107,8 @@ document.querySelector('#app').innerHTML = `
     <nav class="tabs" id="regions"></nav>
     <div class="frame" id="frame">
       <div id="globe"></div>
+      <div id="flat"></div>
+      <div class="mapctl" id="mapctl"><button id="z-in" title="Zoom in" aria-label="Zoom in">+</button><button id="z-out" title="Zoom out" aria-label="Zoom out">−</button><button id="b-mode" class="mode" title="Switch between flat map and 3D globe">3D GLOBE</button></div>
       <div class="ov ov-grid"></div>
       <div class="radar"></div>
       <div class="ov ov-sweep"></div>
@@ -109,7 +117,8 @@ document.querySelector('#app').innerHTML = `
       <div class="ring" id="ring"></div>
       <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
       <div class="hud tl">
-        <div>BSW // OBSERVER-1</div>
+        <div class="hud-obs">BSW // OBSERVER-1</div>
+        <a class="byline byline-sheet" href="https://ravjothbrar.com" target="_blank" rel="noopener"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
         <div class="row hl" id="h-state">STATE ▸ ACQUIRING</div>
         <div class="row" style="margin-top:14px">OBSERVATIONS IN VIEW</div>
         <div class="big" id="h-obs">0</div>
@@ -152,7 +161,7 @@ document.querySelector('#app').innerHTML = `
 
   <section class="bottom">
     <section class="panel" data-tab="INCIDENTS">
-      <div class="panel-h"><span class="t">Incident Log · Baltic seabed</span><i class="info" data-tip="Real suspected-damage cases since 2022, with sources and how each case actually ended. Click one to fly to it.">i</i><span class="tag" id="t-inc">—</span></div>
+      <div class="panel-h"><span class="t">Incident Log</span><i class="info" data-tip="Real suspected-damage cases since 2022, with sources and how each case actually ended. Click one to fly to it.">i</i><span class="tag" id="t-inc">—</span></div>
       <div class="panel-b"><div class="incs" id="incs"></div></div>
     </section>
     <section class="panel" data-tab="GLIDERS">
@@ -166,10 +175,9 @@ document.querySelector('#app').innerHTML = `
   </section>
 
   <footer class="foot">
-    <span>Independent project by <b>Ravjoth Brar</b> · public data · not affiliated with Helsing</span>
+    <span class="foot-made">Made by Ravjoth Brar - <a class="foot-link" href="https://ravjothbrar.com" target="_blank" rel="noopener">ravjothbrar.com</a></span>
     <span class="sp"></span>
-    <span>AIS IS SELF-REPORTED · NOTHING HERE IS EVIDENCE OF INTENT</span>
-    <span>NATURAL EARTH · EMODNET · TELEGEOGRAPHY · OPENSANCTIONS · DIGITRAFFIC</span>
+    <span class="foot-src">AIS is self-reported · nothing here is evidence of intent · Data: Digitraffic · EMODnet · TeleGeography · OpenSanctions · Natural Earth</span>
   </footer>
 
   <div class="sheet min" id="sheet">
@@ -186,7 +194,7 @@ document.body.insertAdjacentHTML('beforeend', `
       <div class="hero-k"><span class="hero-dot"></span>LIVE · <span id="hero-n">—</span> SHIPS · <span id="hero-km">—</span> KM OF MAPPED SEABED LINES</div>
       <h1><span>The seabed is the</span><span>new front line.</span></h1>
       <p>Ships, cables and pipelines across the Baltic, watched live from public data. It flags the patterns, says how weak they are, and shows what persistent underwater sensing would add.</p>
-      <button class="hero-go" id="hero-go">ENTER <span>▸</span></button>
+      <div class="hero-actions"><button class="hero-go" id="hero-go">ENTER <span>▸</span></button><a class="hero-how" href="./how.html">HOW IT WORKS</a><a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a></div>
     </div>
     <div class="hero-foot">
       <span>01 · LIVE AIS</span><span>02 · CABLES &amp; PIPELINES</span><span>03 · SANCTIONS LISTS</span><span>04 · INCIDENT LOG</span><span>05 · GLIDER COVERAGE (SIM)</span>
@@ -272,11 +280,11 @@ function spark(arr, color) {
 const TILE_DEFS = [
   { k: 'vessels', label: 'Vessels', sub: 'tracked live', color: '#cfe9e6', cls: '', focus: 'moving', fname: 'ships under way',
     tip: 'Ships that reported a position in the last 30 minutes. Click to highlight the ones under way.' },
-  { k: 'inCorridor', label: 'In Corridor', sub: '≤1.5 nm of asset', color: '#53f0c9', cls: '', focus: 'corridor', fname: 'ships within 1.5 nm of a cable or pipeline',
+  { k: 'inCorridor', label: 'In Corridor', sub: 'near cables', color: '#53f0c9', cls: '', focus: 'corridor', fname: 'ships within 1.5 nm of a cable or pipeline',
     tip: 'Ships within 1.5 nautical miles of a cable or pipeline right now. In busy lanes that is completely normal. Click to highlight them.' },
-  { k: 'watchlist', label: 'Listed', sub: 'sanctions / watch', color: '#ff5fd2', cls: 'mag', focus: 'listed', fname: 'listed / sanctioned ships',
+  { k: 'watchlist', label: 'Listed', sub: 'sanctions lists', color: '#ff5fd2', cls: 'mag', focus: 'listed', fname: 'listed / sanctioned ships',
     tip: 'Ships on a sanctions, shadow-fleet or detention list (OpenSanctions). A listing is about ownership, not what the ship is doing. Click to highlight them.' },
-  { k: 'dark', label: 'AIS Dark', sub: 'gap near infra', color: '#ffb547', cls: 'amber', focus: 'alerts', fname: 'flagged ships',
+  { k: 'dark', label: 'AIS Dark', sub: 'signal gaps', color: '#ffb547', cls: 'amber', focus: 'alerts', fname: 'flagged ships',
     tip: 'Ships that stopped reporting near infrastructure while nearby ships kept reporting. Usually receiver coverage, sometimes not. Click to highlight flagged ships.' },
   { k: 'alerts', label: 'Alerts', sub: 'watch · elev · high', color: '#ff4d5e', cls: 'red', focus: 'alerts', fname: 'flagged ships', openAlerts: true,
     tip: 'Ships currently matching at least one pattern (WATCH · ELEVATED · HIGH). Click to highlight them and open the alert stream.' },
@@ -318,7 +326,7 @@ function renderTiles() {
     if (d.k === 'wind') {
       const v = t.querySelector('.v');
       v.textContent = vals.wind == null ? '—' : `${Math.round(vals.wind)} kn`;
-      t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'weather feed pending') : vals.wind >= 30 ? 'gale: slow speed is normal' : 'Gulf of Finland';
+      t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'awaiting data') : vals.wind >= 30 ? 'gale' : 'Gulf of Finland';
     } else setNum(t.querySelector('.v'), vals[d.k]);
     if (d.k === 'alerts' && s) t.querySelector('.s').textContent = `${s.alerts?.WATCH || 0} · ${s.alerts?.ELEVATED || 0} · ${s.alerts?.HIGH || 0}`;
     const h = state.hist[d.k];
@@ -333,6 +341,7 @@ const LAYER_DEFS = [
   { k: 'pipeline', name: 'Pipelines', color: '#ffb547', ic: 'line' },
   { k: 'incidents', name: 'Past Incidents', color: '#ff4d5e', ic: '' },
   { k: 'gliders', name: 'Gliders (sim)', color: '#53f0c9', ic: '' },
+  { k: 'sar', name: 'Radar · not on AIS', color: '#ffb547', ic: 'sq' },
 ];
 function layerMeta(k) {
   const f = state.feeds || {};
@@ -346,15 +355,16 @@ function layerMeta(k) {
     case 'vessels': {
       const srcs = [];
       if (f.digitraffic) srcs.push('Digitraffic');
-      if (f.aisstream?.enabled) srcs.push('AISStream');
+      if (f.aisstream?.enabled) srcs.push('aisstream');
       const last = Math.max(Date.parse(f.digitraffic?.last || 0) || 0, Date.parse(f.aisstream?.last || 0) || 0, state.lastVesselMsg);
       return { n: state.vessels.size, src: `${srcs.join(' · ') || 'AIS'} · ${last ? ago(last) : 'waiting'}` };
     }
     case 'telecom': return { n: infraCount('telecom'), src: infraSrc('telecom') };
-    case 'power': return { n: infraCount('power'), src: `${infraSrc('power')} · DE waters only` };
+    case 'power': return { n: infraCount('power'), src: infraSrc('power').includes('OpenStreetMap') ? infraSrc('power') : `${infraSrc('power')} · DE waters only` };
     case 'pipeline': return { n: infraCount('pipeline'), src: infraSrc('pipeline') };
     case 'incidents': return { n: state.incidents.length, src: 'hand-curated · sourced' };
     case 'gliders': return { n: state.glider.N, src: `simulation · R ${state.glider.R} km` };
+    case 'sar': return state.sar ? { n: state.sar.unmatchedCells?.length || 0, src: `GFW SAR · ${state.sar.windowDays || 30} d · ${state.sar.lagDays ?? 5}-day lag` } : { n: 0, src: 'Global Fishing Watch · pending' };
   }
   return { n: 0, src: '' };
 }
@@ -428,7 +438,7 @@ function setPreset(p) {
   document.body.classList.remove('p-sonar', 'p-nvg', 'p-clean');
   if (p !== 'NORMAL') document.body.classList.add(`p-${p.toLowerCase()}`);
   renderPresets();
-  setTimeout(() => globe.viewer.resize(), 50);
+  setTimeout(() => { resize3d(); flat.resize(); }, 50);
   if (p === 'CLEAN') showToastPreset();
 }
 function showToastPreset() {
@@ -456,8 +466,9 @@ function renderLegend() {
     [null, '', '#ffb547', 'ALERT'],
     ['incidents', 'dm', '#ff4d5e', 'INCIDENT'],
     ['gliders', '', '#53f0c9', 'GLIDER (SIM)'],
+    ...(state.sar?.unmatchedCells?.length ? [['sar', 'sq', '#ffb547', 'RADAR · NOT ON AIS']] : []),
   ];
-  $('#legend').innerHTML = items.map(([k, ic, c, l]) => `<span class="lg ${k && !state.layers[k] ? 'off' : ''}" ${k ? `data-k="${k}" style="cursor:pointer"` : ''}><i class="${ic}" style="color:${c}"></i><span>${l}</span></span>`).join('') + `<span class="hint">SCROLL TO ZOOM · DRAG TO PAN · CLICK A SHIP</span>`;
+  $('#legend').innerHTML = items.map(([k, ic, c, l]) => `<span class="lg ${k && !state.layers[k] ? 'off' : ''}" ${k ? `data-k="${k}" style="cursor:pointer"` : ''}><i class="${ic}" style="color:${c}"></i><span>${l}</span></span>`).join('');
 }
 
 function sortedAlerts() {
@@ -519,6 +530,8 @@ function renderShouldnt() {
         <li>Slow speed has dull causes: waiting for a berth, a pilot, ice or weather.</li>
         <li>AIS gaps are mostly receiver coverage, not transponders switched off.</li>
         <li>A sanctions-list match tells you about ownership, not about what the ship is doing.</li>
+        <li>Live AIS covers the northern Baltic (Digitraffic); the whole Baltic is refreshed every 15 min when aisstream is enabled.</li>
+        ${state.sar ? `<li>Radar squares: ${esc(state.sar.caveat || 'a radar detection with no AIS match can be a small boat, a platform, a wind turbine or a timing mismatch, and the data lags by days.')}</li>` : ''}
         ${is.n ? `<li>Of <b style="color:var(--ink)">${is.n}</b> logged incidents, <b style="color:var(--ink)">${is.soft}</b> ended dismissed, cleared, ruled an accident or inconclusive.</li>` : ''}
       </ul>
       ${precedent.length ? `<div class="sech">PRECEDENT</div><ul>${precedent.map((i) => `<li><b style="color:var(--ink)">${esc(i.vessel.name)}</b>: ${esc(i.outcome)}</li>`).join('')}</ul>` : ''}
@@ -573,15 +586,15 @@ function renderGlider() {
     el.innerHTML = `
       <div class="gl">
         <div class="ctl">
-          <div class="sl"><div class="lb"><span>GLIDERS N</span><b id="g-n">120</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="120"/></div>
-          <div class="sl"><div class="lb"><span>RADIUS R</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
+          <div class="sl"><div class="lb"><span>GLIDERS</span><b id="g-n">120</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="120"/></div>
+          <div class="sl"><div class="lb"><span>RADIUS</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
           <div class="sl"><div class="lb"><span>CORRIDORS</span><b id="g-cov2" style="color:var(--violet)">0%</b></div><div class="covbar"><i id="g-bar" style="width:0%"></i></div></div>
         </div>
         <div class="ro">
           <div><span>COVERAGE</span><b id="g-cov">0.0%</b></div>
-          <div><span>NAMED ASSETS</span><b id="g-named">—</b></div>
+          <div><span>ASSETS</span><b id="g-named">—</b></div>
           <div><span>OPERATORS</span><b class="v">1</b></div>
-          <div><span>ENDURANCE</span><b>≤3 mo</b></div>
+          <div><span>PATROL</span><b>≤3 mo</b></div>
         </div>
         <div class="as"><b>ASSUMPTIONS (SIM):</b> R is an <b>assumed</b> passive-acoustic detection radius, not a published spec. Placement is greedy max-coverage over ~5 km cells weighted by cable km × live traffic × 3 for named assets. <span id="g-depth">Depth not modelled.</span> 1 operator and ≤3-month endurance are Helsing's public SG-1 Fathom claims. No Helsing data is used.</div>
       </div>`;
@@ -618,18 +631,33 @@ function renderSources() {
   const rows = [];
   const live = (o) => o && o.ok;
   rows.push({ n: 'Digitraffic AIS', s: 'Fintraffic · keyless · N. Baltic', st: f.digitraffic ? (live(f.digitraffic) ? 'ok' : 'bad') : 'off', a: f.digitraffic ? `${fmt(f.digitraffic.count)} · ${ago(f.digitraffic.last)}` : 'pending' });
-  rows.push({ n: 'AISStream', s: 'global AIS · needs key', st: f.aisstream?.enabled ? (live(f.aisstream) ? 'ok' : 'bad') : 'off', a: f.aisstream?.enabled ? `${fmt(f.aisstream.count)} · ${ago(f.aisstream.last)}` : 'no key set' });
+  rows.push(f.aisstream?.enabled
+    ? { n: 'aisstream.io', s: f.aisstream.label || 'whole-Baltic AIS', st: live(f.aisstream) ? 'ok' : 'warn', a: [f.aisstream.count ? fmt(f.aisstream.count) : null, f.aisstream.last ? ago(f.aisstream.last) : null].filter(Boolean).join(' · ') || 'enabled' }
+    : { n: 'aisstream.io', s: 'whole-Baltic AIS · needs key', st: 'off', a: 'no key set' });
+  rows.push(state.sar
+    ? { n: 'Global Fishing Watch SAR', s: `radar vessel detections · ${state.sar.licence || 'CC BY-NC 4.0'}`, st: 'ok', a: (state.sar.dateRange || []).join(' → ') || ago(state.sar.generated) }
+    : { n: 'Global Fishing Watch SAR', s: 'radar vessel detections', st: 'off', a: 'token not set / pending' });
   rows.push({ n: 'Open-Meteo', s: 'wind & waves · context', st: f.weather ? (live(f.weather) ? 'ok' : 'warn') : 'off', a: f.weather ? ago(f.weather.last) : 'pending' });
   rows.push({ n: 'OpenSanctions', s: 'maritime watchlist', st: f.watchlist ? (live(f.watchlist) ? 'ok' : 'warn') : 'off', a: f.watchlist ? `${fmt(f.watchlist.count)} · ${f.watchlist.updated ? ago(f.watchlist.updated) : ''}` : 'pending' });
   rows.push({ n: 'Telecom cables', s: 'TeleGeography · public cable map', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'telecom').length)} lines` : 'not loaded' });
   rows.push({ n: 'Pipelines', s: 'EMODnet Human Activities', st: state.infra ? 'ok' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'pipeline').length)} lines` : 'not loaded' });
-  rows.push({ n: 'Power cables', s: 'EMODnet · German waters only', gap: 'GAP: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(state.infra.features.filter((x) => x.properties?.kind === 'power').length)} lines` : 'not loaded' });
-  rows.push({ n: 'Bathymetry', s: 'glider depth mask', gap: 'GAP: depth not modelled', st: 'off', a: 'not used' });
+  const power = state.infra ? state.infra.features.filter((x) => x.properties?.kind === 'power') : [];
+  const osmPower = power.some((x) => x.properties?.source === 'OpenStreetMap');
+  rows.push(osmPower
+    ? { n: 'Power cables', s: 'EMODnet + OpenStreetMap', st: 'ok', a: `${fmt(power.length)} lines` }
+    : { n: 'Power cables', s: 'EMODnet · German waters only', gap: 'Gap: Estlink 1/2, NordBalt etc. not in reachable open data', st: state.infra ? 'warn' : 'off', a: state.infra ? `${fmt(power.length)} lines` : 'not loaded' });
+  const depthOn = !!state.grid?.cells?.some((c) => c[4] !== 1);
+  rows.push(depthOn
+    ? { n: 'Bathymetry', s: 'EMODnet bathymetry · depth mask on', st: 'ok', a: 'glider layer' }
+    : { n: 'Bathymetry', s: 'glider depth mask', gap: 'Gap: depth not modelled', st: 'off', a: 'not used' });
   rows.push({ n: 'Incident log', s: 'hand-curated · every row cited', st: state.incidents.length ? 'ok' : 'off', a: state.incidents.length ? `${state.incidents.length} rows` : 'pending' });
-  rows.push({ n: 'Live stream', s: 'SSE · this server', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'connected' : 'offline' });
+  rows.push(ds.mode === 'browser'
+    ? { n: 'Live engine', s: 'runs in this browser tab', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'running' : 'offline' }
+    : { n: 'Live stream', s: 'SSE · this server', st: state.sseOk ? 'ok' : 'bad', a: state.sseOk ? 'connected' : 'offline' });
   const ok = rows.filter((r) => r.st === 'ok').length;
   $('#t-src').textContent = `${ok}/${rows.length} OK`;
-  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small>${r.gap ? `<small class="gap">${r.gap}</small>` : ''}</span><span class="a">${r.a}</span></div>`).join('');
+  $('#srcs').innerHTML = rows.map((r) => `<div class="srci"><i class="d ${r.st === 'ok' ? '' : r.st}"></i><span class="n">${r.n}<small>${r.s}</small>${r.gap ? `<small class="gap">${r.gap}</small>` : ''}</span><span class="a">${r.a}</span></div>`).join('')
+    + '<p class="src-note">Independent project · public data only · not affiliated with or endorsed by Helsing.</p>';
 }
 
 function renderTop() {
@@ -640,7 +668,10 @@ function renderTop() {
   $('#c-feeds').textContent = feeds.length ? `${okFeeds}/${feeds.length}` : '—';
   $('#c-sweep').textContent = s?.sweepMs != null ? `${(s.sweepMs / 1000).toFixed(1)}s` : '—';
   $('#c-msgs').textContent = s?.msgsPerMin != null ? fmt(Math.round(s.msgsPerMin)) : '—';
-  const stale = !state.sseOk && Date.now() - state.lastSnapshot > 30000;
+  // STALE when the transport is down OR no AIS feed is fresh (the transport being open says nothing about the ships).
+  const aisFresh = ['digitraffic', 'aisstream'].some((k) => f[k]?.ok && f[k]?.last && Date.now() - f[k].last < 120e3);
+  const transportDown = !state.sseOk && Date.now() - state.lastSnapshot > 30000;
+  const stale = transportDown || (!!state.feeds && !aisFresh);
   const lvl = stale ? 'STALE' : s?.level || 'NOMINAL';
   const pill = $('#c-level');
   pill.dataset.level = lvl;
@@ -708,7 +739,7 @@ function dossierHTML(v, track, alert, loading) {
       </div>
       ${v.watch ? `<div class="watchbox"><div class="k">LISTED VESSEL · ${esc((v.watch.risk || []).join(' · ').toUpperCase())}</div><p>${esc((v.watch.datasets || []).join(', '))}</p>${v.watch.url ? `<p><a href="${esc(v.watch.url)}" target="_blank" rel="noopener">OpenSanctions record ↗</a></p>` : ''}<p style="color:var(--ink-3)">A list match is about ownership or past conduct, not what this ship is doing now.</p></div>` : ''}
       <div class="sech">TRACK${hours ? ` · LAST ${hours} H · ${track.length} FIXES` : ''}</div>
-      <div style="font-size:11px;color:var(--ink-3)">${loading ? 'Loading track…' : track && track.length > 1 ? 'Drawn on the globe.' : 'No track history yet. It builds up while the server runs.'}</div>
+      <div style="font-size:11px;color:var(--ink-3)">${loading ? 'Loading track…' : track && track.length > 1 ? 'Drawn on the map.' : 'No track history yet. It builds up while the server runs.'}</div>
       ${alert ? `<div class="sech">SIGNALS</div><div class="sigs" style="margin:0 0 6px">${alert.signals.map((s) => `<span class="sig ${s.strength} ${s.explained ? 'x' : ''}">${SIGNALS[s.id]?.short || s.id}</span>`).join('')}</div><div style="font-size:11px;color:var(--ink-2)">See <b style="color:var(--amber)">What you shouldn't conclude</b> for the innocent explanations.</div>` : `<div class="sech">SIGNALS</div><div style="font-size:11px;color:var(--ink-3)">No anomaly rules triggered for this ship.</div>`}
       ${v.watch && v.watch.url ? '' : ''}
     </div>`;
@@ -814,10 +845,31 @@ async function getJSON(url) {
 }
 
 let coastLoaded = false;
+function openBrief() {
+  let el = $('#brief');
+  if (!el) {
+    document.body.insertAdjacentHTML('beforeend', '<div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Daily brief"><div class="bf-box"><button class="bf-x" id="brief-x" aria-label="Close">✕</button><div id="brief-body"></div></div></div>');
+    el = $('#brief');
+  }
+  $('#brief-body').innerHTML = renderBrief(state.brief);
+  el.classList.add('on');
+}
+
+// Optional data published by GitHub Actions. Dev-only fixtures: ?sarsample / ?briefsample (never in a production build).
+async function loadOptional(name) {
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has(`${name}sample`)) {
+    const m = name === 'sar' ? await import('../dev/sar.sample.json') : await import('../dev/brief.sample.json');
+    return m.default;
+  }
+  return getJSON(asset(`data/${name}.json`));
+}
+
 async function loadStatic() {
   if (!coastLoaded) getJSON(asset('geo/coast.json')).then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
   if (!state.landLoaded) getJSON(asset('geo/land.json')).then((l) => { if (l) { state.landLoaded = true; globe.setLand(l); } });
-  const [infra, incidents, grid] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json'))]);
+  const [infra, incidents, grid, sar, brief] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json')), loadOptional('sar'), loadOptional('brief')]);
+  if (sar?.unmatchedCells) { state.sar = sar; flat.setSar(sar.unmatchedCells); renderLegend(); renderSources(); renderShouldnt(); }
+  if (brief?.generated) state.brief = brief;
   if (infra && infra.features) {
     state.infra = infra;
     globe.setInfra(infra);
@@ -830,9 +882,9 @@ async function loadStatic() {
   }
   if (grid && grid.cells) {
     state.grid = grid;
-    const allOk = grid.cells.every((c) => c[4] !== 0);
+    const depthOn = grid.cells.some((c) => c[4] !== 1);
     const gd = $('#g-depth');
-    if (gd) gd.textContent = allOk ? 'Depth not modelled (no bathymetry mask in this build).' : 'Shallow cells (<25 m) are down-weighted.';
+    if (gd) gd.textContent = depthOn ? 'Depth mask on (EMODnet bathymetry): shallow cells are down-weighted.' : 'Depth not modelled (no bathymetry mask in this build).';
   }
   if (state.infra) {
     let km = 0;
@@ -966,11 +1018,11 @@ function layoutForViewport() {
   } else {
     const homes = { left: $('.col-left'), right: $('.col-right'), bottom: $('.bottom') };
     // restore original order
-    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'Signal Core', "What you shouldn't conclude", 'Incident Log · Baltic seabed', 'Glider Coverage', 'Data Sources'];
+    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'Signal Core', "What you shouldn't conclude", 'Incident Log', 'Glider Coverage', 'Data Sources'];
     panels.sort((a, b) => order.indexOf($('.t', a).textContent) - order.indexOf($('.t', b).textContent));
     panels.forEach((p) => { p.hidden = false; if (p.dataset.home) homes[p.dataset.home].appendChild(p); });
   }
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 60);
+  setTimeout(() => { resize3d(); flat.resize(); buildRing(); }, 60);
 }
 function setSheetTab(t, expand) {
   sheetTab = t;
@@ -980,8 +1032,68 @@ function setSheetTab(t, expand) {
 }
 
 // ---------------------------------------------------------------- globe + events
-const globe = createGlobe($('#globe'));
-window.__bsw = { globe, state }; // debug handle
+// Two views of the same data: the flat d3 map (default dashboard view) and the Cesium globe (intro + GLOBE mode).
+// Data setters go to both; camera, picking and counting go to whichever is active.
+// Cesium (~3.6 MB) is loaded on demand: only for the intro globe or 3D GLOBE mode. Until it loads, data-setter calls
+// are recorded and replayed into it, so the globe always shows the same picture as the flat map.
+let globe3d = null, globeLoading = null;
+const replay = new Map();
+const gHandlers = [];
+const REDUCED = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function record(k, a) {
+  if (k === 'upsertVessels' || k === 'removeVessels') return; // replayed from state.vessels instead
+  if (k === 'setLayer') replay.set(`setLayer:${a[0]}`, [k, a]);
+  else if (k === 'showTrack' || k === 'clearTrack') replay.set('track', [k, a]);
+  else replay.set(k, [k, a]);
+}
+function loadGlobe() {
+  if (!globeLoading) {
+    globeLoading = import('./globe.js').then(({ createGlobe }) => {
+      globe3d = createGlobe($('#globe'));
+      for (const [ev, f] of gHandlers) globe3d.on(ev, f);
+      for (const [k, a] of replay.values()) globe3d[k](...a);
+      if (state.vessels.size) globe3d.upsertVessels([...state.vessels.values()]);
+      if (viewMode === 'flat') globe3d.viewer.useDefaultRenderLoop = false;
+      window.__bsw.globe = globe3d;
+      return globe3d;
+    });
+  }
+  return globeLoading;
+}
+const resize3d = () => globe3d?.viewer.resize();
+const flat = createFlatMap($('#flat'));
+let viewMode = 'globe'; // 'globe' during the intro, then 'flat'
+const activeView = () => (viewMode === 'flat' || !globe3d ? flat : globe3d);
+const BOTH = ['setInfra', 'setCoast', 'setLand', 'setIncidents', 'upsertVessels', 'removeVessels', 'setFocus', 'setGliders', 'setLayer', 'showTrack', 'clearTrack', 'setReserved'];
+const globe = {
+  heroStart: () => globe3d?.heroStart(),
+  heroEnd: (cb) => (globe3d ? globe3d.heroEnd(cb) : cb()),
+  flyRegion: (...a) => activeView().flyRegion(...a),
+  flyPoint: (...a) => activeView().flyPoint(...a),
+  countInView: () => activeView().countInView(),
+  setTasking: (a) => { const r = flat.setTasking(a); globe3d?.setTasking(viewMode === 'globe' ? a : null); return r; },
+  on: (ev, f) => { flat.on(ev, (...a) => viewMode === 'flat' && f(...a)); const g = (...a) => viewMode === 'globe' && f(...a); gHandlers.push([ev, g]); globe3d?.on(ev, g); },
+};
+for (const k of BOTH) globe[k] = (...a) => { flat[k](...a); record(k, a); return globe3d?.[k](...a); };
+async function setViewMode(m, { fly = true } = {}) {
+  if (m === 'globe' && !globe3d) {
+    const btn = $('#b-mode'); btn.textContent = 'LOADING…'; btn.disabled = true;
+    try { await loadGlobe(); } finally { btn.disabled = false; }
+  }
+  viewMode = m;
+  document.body.classList.toggle('view-flat', m === 'flat');
+  document.body.classList.toggle('view-globe', m === 'globe');
+  if (globe3d) {
+    if (m === 'globe') globe3d.viewer.useDefaultRenderLoop = true;
+    else setTimeout(() => { if (viewMode === 'flat' && globe3d) globe3d.viewer.useDefaultRenderLoop = false; }, 800); // after the cross-fade
+  }
+  $('#b-mode').textContent = m === 'flat' ? '3D GLOBE' : '2D MAP';
+  if (m === 'flat') { flat.resize(); if (fly) flat.flyRegion(state.region || 'BALTIC', 0); }
+  else { resize3d(); if (fly) globe3d.flyRegion(state.region || 'BALTIC', REDUCED ? 0 : 1.2); }
+  if (state.selectedAlert) { const a = state.alerts.get(state.selectedAlert); globe.setTasking(a || null); }
+  buildRing();
+}
+window.__bsw = { globe: null, flat, state, setViewMode, loadGlobe }; // debug handle
 
 buildRing();
 renderRegions();
@@ -1004,31 +1116,43 @@ function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
-  globe.heroEnd(() => { introDone = true; maybeOfferTour(); });
-  setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1600);
+  resize3d(); flat.resize(); buildRing(); // size the frame first so the swoop targets the final layout
+  const done = () => { introDone = true; setViewMode('flat'); maybeOfferTour(); };
+  if (globe3d && !REDUCED) globe.heroEnd(done); else done(); // no swoop if Cesium isn't ready yet or motion is reduced
+  setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1900);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
 }
 if (params.has('nohero')) {
   introDone = true;
   $('#hero').remove();
-  globe.flyRegion('BALTIC', 0);
+  setViewMode('flat');
   setTimeout(maybeOfferTour, 1500);
 } else {
   document.body.classList.add('hero-on');
-  globe.heroStart();
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
-  $('#hero').addEventListener('click', exitHero);
+  document.body.classList.add('view-globe');
+  // hero typography shows at once over a CSS globe; Cesium fades in when it has loaded
+  // reduced motion: keep the static CSS globe, skip the 3D engine entirely
+  if (!REDUCED) loadGlobe().then(() => { if (!document.body.classList.contains('hero-on')) return; globe.heroStart(); resize3d(); buildRing();
+    // keep the CSS placeholder until the globe's tiles have actually drawn (max 4 s)
+    const t0 = performance.now();
+    const ready = () => (globe3d.viewer.scene.globe.tilesLoaded || performance.now() - t0 > 4000 ? document.body.classList.add('globe-ready') : setTimeout(ready, 120));
+    setTimeout(ready, 200);
+  });
+  setTimeout(buildRing, 30);
+  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline, .hero-how')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
   if (!HOLD) setTimeout(exitHero, 5200);
 }
 setInterval(() => { const h = $('#hero-utc'); if (h) h.textContent = utc(); const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
 
 globe.on('camera', (c) => {
-  $('#h-cam').textContent = `CAM ${Math.abs(c.lat).toFixed(4)}°${c.lat >= 0 ? 'N' : 'S'} ${Math.abs(c.lon).toFixed(4)}°${c.lon >= 0 ? 'E' : 'W'}`;
-  const alt = c.alt > 100000 ? `${fmt(Math.round(c.alt / 1000))} KM` : `${(c.alt / 1000).toFixed(1)} KM`;
-  $('#h-cam2').textContent = `ALT ${alt} · HDG ${pad(Math.round((c.heading + 360) % 360), 3)} · PITCH ${Math.round(c.pitch)}°`;
-  $('#ring').classList.toggle('on', c.alt > 4500000 || !introDone);
+  $('#h-cam').textContent = `${Math.abs(c.lat).toFixed(3)}°${c.lat >= 0 ? 'N' : 'S'}  ${Math.abs(c.lon).toFixed(3)}°${c.lon >= 0 ? 'E' : 'W'}`;
+  if (c.flat) $('#h-cam2').textContent = `VIEW ${fmt(Math.round(c.spanKm))} KM ACROSS · ZOOM ${c.k.toFixed(1)}×`;
+  else {
+    const alt = c.alt > 100000 ? `${fmt(Math.round(c.alt / 1000))} KM` : `${(c.alt / 1000).toFixed(1)} KM`;
+    $('#h-cam2').textContent = `ALT ${alt} · PITCH ${Math.round(c.pitch)}°`;
+  }
+  $('#ring').classList.toggle('on', viewMode === 'globe' && (c.alt > 4500000 || !introDone));
   const n = globe.countInView();
   if (n !== state.inView) { state.inView = n; setNum($('#h-obs'), n, { dur: 400 }); }
 });
@@ -1061,6 +1185,8 @@ globe.on('hover', (id, pos) => {
     const i = state.incidents.find((x) => x.id === id.id);
     if (!i) return;
     html = `${esc(i.title)}<small>${esc(i.date)} · ${esc(i.outcomeStatus || '')} · approx. location</small>`;
+  } else if (id.kind === 'sar') {
+    html = `${fmt(id.n)} radar detection${id.n === 1 ? '' : 's'} not matched to AIS<small>last ${esc(id.last || '?')} · ${state.sar?.lagDays ?? 5}-day data lag · Global Fishing Watch</small>`;
   } else if (id.kind === 'glider') {
     html = `GLIDER ${pad(id.i + 1, 3)} (SIM)<small>R ${state.glider.R} km · racetrack patrol</small>`;
   }
@@ -1090,6 +1216,9 @@ function flyIncident(id) {
 
 document.addEventListener('click', (e) => {
   const t = e.target;
+  if (t.closest('#z-in')) { viewMode === 'flat' || !globe3d ? flat.zoomBy(1.8) : globe3d.viewer.camera.zoomIn(globe3d.viewer.camera.positionCartographic.height * 0.4); return; }
+  if (t.closest('#z-out')) { viewMode === 'flat' || !globe3d ? flat.zoomBy(1 / 1.8) : globe3d.viewer.camera.zoomOut(globe3d.viewer.camera.positionCartographic.height * 0.6); return; }
+  if (t.closest('#b-mode')) { setViewMode(viewMode === 'flat' ? 'globe' : 'flat'); return; }
   const reg = t.closest('.tab[data-r]');
   if (reg) { state.region = reg.dataset.r; renderRegions(); globe.flyRegion(state.region); return; }
   const tl = t.closest('#tiles .tile[data-k]');
@@ -1117,13 +1246,15 @@ document.addEventListener('click', (e) => {
   if (lg) { toggleLayer(lg.dataset.k); return; }
   if (t.closest('[data-close]')) { closeDossier(); state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null); return; }
   if (t.closest('#b-signals')) { $('#modal').classList.add('on'); return; }
+  if (t.closest('#b-brief')) { openBrief(); return; }
+  if (t.closest('#brief-x') || t.id === 'brief') { $('#brief').classList.remove('on'); return; }
   if (t.closest('#modal-x') || t.id === 'modal') { $('#modal').classList.remove('on'); return; }
   const st = t.closest('#stabs button');
   if (st) { setSheetTab(st.dataset.t, true); return; }
   if (t.closest('#grab')) { $('#sheet').classList.toggle('min'); return; }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { $('#modal').classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
+  if (e.key === 'Escape') { $('#modal').classList.remove('on'); $('#brief')?.classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
 });
 
 // ---------------------------------------------------------------- tooltips for [data-tip]
@@ -1157,7 +1288,7 @@ const tabPanel = (tab, sel) => () => (MOBILE() ? '#sheet' : sel);
 function onTab(tab) { if (MOBILE()) setSheetTab(tab, true); }
 const TOUR_STEPS = [
   {
-    target: () => (MOBILE() ? '#globe' : '#frame'),
+    target: () => '#frame',
     title: 'A live map of the Baltic',
     body: 'Every dot is a <b>real ship</b> reporting its position right now. The glowing lines are seabed infrastructure: <span class="c-cy">telecom cables</span>, <span class="c-vi">power cables</span> and <span class="c-am">gas pipelines</span>. Red <span class="c-rd">◆</span> marks past incidents.',
     before: () => { if (MOBILE()) $('#sheet').classList.add('min'); globe.flyRegion('BALTIC', 1.6); },

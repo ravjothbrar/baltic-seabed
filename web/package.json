@@ -9,13 +9,19 @@
     "build:coast": "node scripts/build-coast.mjs public/geo/coast.json"
   },
   "dependencies": {
-    "cesium": "1.123.0"
+    "cesium": "1.123.0",
+    "d3-ease": "^3.0.1",
+    "d3-geo": "^3.1.1",
+    "d3-interpolate": "^3.0.1",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
+    "d3-zoom": "^3.0.0"
   },
   "devDependencies": {
+    "topojson-client": "3.1.0",
     "vite": "5.4.11",
     "vite-plugin-static-copy": "1.0.6",
-    "world-atlas": "2.0.2",
-    "topojson-client": "3.1.0"
+    "world-atlas": "2.0.2"
   },
   "overrides": {
     "@zip.js/zip.js": "2.7.54"

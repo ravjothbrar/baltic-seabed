@@ -1,0 +1,8 @@
+{
+  "_SAMPLE": "DEV FIXTURE ONLY: fake detections to test the radar layer. Never shipped (loaded only in the Vite dev server with ?sarsample).",
+  "generated": "2026-11-12T05:00:00Z", "dateRange": ["2026-10-08", "2026-11-07"], "windowDays": 30, "lagDays": 5,
+  "detections": 1234, "matched": 1147, "unmatched": 87,
+  "unmatchedCells": [[24.6, 59.7, 6, "2026-11-06"], [26.1, 59.9, 3, "2026-11-04"], [20.1, 57.4, 11, "2026-11-07"], [19.0, 55.6, 1, "2026-10-30"], [23.0, 59.3, 4, "2026-11-02"]],
+  "source": "SAMPLE", "licence": "CC BY-NC 4.0",
+  "caveat": "Sample caveat: radar sees boats, rigs and turbines too; data lags ~5 days."
+}

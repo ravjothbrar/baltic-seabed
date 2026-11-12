@@ -1,4 +1,5 @@
 // Builds web/public/data/{infra.geojson, anchorages.geojson, grid.json} from public sources.
+// Run scripts/fetch_bathymetry.py first to get depth.json (glider depth mask).
 // Output is committed so the live site never depends on these upstreams.
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { clipLine, simplify, lineKm, distNm, BBOX, inBaltic } from '../server/geo.js';
@@ -65,17 +66,46 @@ for (const layer of ['pcablesbshcontis', 'pcablesnve', 'pcablesshom']) {
   } catch (e) { console.warn(`  ! ${layer}: ${e.message}`); }
 }
 
-// Optional: OpenStreetMap subsea power cables, if a local Overpass export exists (Overpass is often unreachable).
-try {
-  const osm = JSON.parse(await readFile(process.env.OSM_CABLES || 'scripts/cache/osm-power-cables.json', 'utf8'));
-  for (const w of osm.elements || []) {
+// OpenStreetMap subsea power cables (Estlink, NordBalt, Fenno-Skan, ...): fetched from Overpass in chunks, cached in
+// scripts/cache/osm-power-cables.json. If Overpass is unreachable (it often is from sandboxes), the cache is used.
+const OSM_CACHE = process.env.OSM_CABLES || 'scripts/cache/osm-power-cables.json';
+async function fetchOverpass() {
+  const boxes = ['53.5,9.5,56,15', '53.5,15,56,22', '56,15,59,22', '56,9.5,59,15', '59,17,61.5,30.5', '61.5,16,66,26'];
+  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  const els = new Map();
+  for (const b of boxes) {
+    const q = `[out:json][timeout:180];way["power"="cable"]["location"~"underwater|submarine"](${b});out geom tags;`;
+    let ok = false;
+    for (const h of hosts) {
+      for (let t = 0; t < 2 && !ok; t++) {
+        try {
+          const r = await fetch(h, { method: 'POST', headers: { ...UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q), signal: AbortSignal.timeout(200e3) });
+          if (!r.ok) throw new Error(r.status);
+          for (const e of (await r.json()).elements || []) els.set(e.id, e);
+          ok = true;
+        } catch (e) { console.warn(`  ! overpass ${b} via ${new URL(h).host}: ${e.message}`); await new Promise((res) => setTimeout(res, 10e3)); }
+      }
+      if (ok) break;
+    }
+    if (!ok) throw new Error(`chunk ${b} failed`);
+  }
+  return { generated: new Date().toISOString(), source: 'OpenStreetMap contributors (ODbL)', elements: [...els.values()] };
+}
+let osm = null;
+if (!process.env.SKIP_OVERPASS) {
+  try { osm = await fetchOverpass(); await mkdir('scripts/cache', { recursive: true }); await writeFile(OSM_CACHE, JSON.stringify(osm)); }
+  catch (e) { console.warn(`  ! Overpass unavailable (${e.message}); using cache if present`); }
+}
+if (!osm) { try { osm = JSON.parse(await readFile(OSM_CACHE, 'utf8')); } catch {} }
+if (osm?.elements?.length) {
+  for (const w of osm.elements) {
     if (!w.geometry) continue;
     const name = w.tags?.name || w.tags?.operator || 'Power cable';
     add({ id: `osm-${w.id}`, name, kind: 'power', named: isNamed(name), source: 'OpenStreetMap' },
       { type: 'LineString', coordinates: w.geometry.map((g) => [g.lon, g.lat]) });
   }
-  console.log('· OpenStreetMap power cables merged');
-} catch { console.log('· (no OpenStreetMap power-cable export; skipping)'); }
+  console.log(`· OpenStreetMap power cables merged: ${osm.elements.length}`);
+} else console.log('· (no OpenStreetMap power cables available; skipping)');
 
 const infra = { type: 'FeatureCollection', generated: new Date().toISOString(), features };
 await mkdir(OUT, { recursive: true });
@@ -115,10 +145,29 @@ for (const f of features) {
 }
 // Drop cells that are on land: within ~1.5 km of a port is fine, but we have no land mask, so keep all
 // cable cells (they are by definition on or near the seabed) and flag that depth is not modelled.
+// Depth from EMODnet Bathymetry (scripts/fetch_bathymetry.py → depth.json), if present.
+let depth = null;
+try { depth = JSON.parse(await readFile(new URL('depth.json', OUT), 'utf8')); } catch {}
+const MIN_DEPTH = 25; // m: shallower water is marginal for gliders (assumption, shown in the UI)
+function depthAt(lon, lat) {
+  if (!depth) return null;
+  const c = Math.floor((lon - depth.bbox[0]) / depth.res), r = Math.floor((depth.bbox[3] - lat) / depth.res);
+  const vals = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const v = depth.values[r + dr]?.[c + dc]; if (v != null) vals.push(v); }
+  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+}
 const grid = {
   cell: CELL,
-  note: 'Cells crossed by mapped cables/pipelines. depthOk=1 everywhere: no bathymetry mask applied in this build.',
-  cells: [...cells].map(([k, v]) => { const [x, y] = k.split(',').map(Number); return [+((x + 0.5) * CELL).toFixed(3), +((y + 0.5) * CELL).toFixed(3), +v.km.toFixed(2), v.named, 1]; }),
+  minDepthM: depth ? MIN_DEPTH : null,
+  depthSource: depth ? depth.source : null,
+  note: depth
+    ? `Cells crossed by mapped cables/pipelines. [lon, lat, infraKm, named, depthOk, depthM]; depthOk=0 where mean depth is shallower than ${MIN_DEPTH} m (EMODnet Bathymetry).`
+    : 'Cells crossed by mapped cables/pipelines. depthOk=1 everywhere: no bathymetry mask applied in this build.',
+  cells: [...cells].map(([k, v]) => {
+    const [x, y] = k.split(',').map(Number); const lon = (x + 0.5) * CELL, lat = (y + 0.5) * CELL;
+    const d = depthAt(lon, lat);
+    return [+lon.toFixed(3), +lat.toFixed(3), +v.km.toFixed(2), v.named, d == null ? 1 : d <= -MIN_DEPTH ? 1 : 0, d];
+  }),
 };
 await writeFile(new URL('grid.json', OUT), JSON.stringify(grid));
 console.log('  grid cells:', grid.cells.length);

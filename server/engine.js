@@ -45,7 +45,7 @@ export function createEngine({ corridors, watchlist = { byImo: {}, byMmsi: {}, u
     }
     return v;
   }
-  function restoreVessel(v) { vessels.set(v.mmsi, { ...v, lat: null }); }
+  function restoreVessel(v) { vessels.set(v.mmsi, { ...v, lat: null, lon: null, ts: 0, level: null }); } // ts reset so the archive can replay
 
   function onPosition(mmsi, lon, lat, sog, cog, hdg, nav, ts, src, { evaluateNow = true } = {}) {
     if (!(lon > -180 && lon < 180 && lat > -90 && lat < 90) || !inBaltic([lon, lat])) return;
@@ -55,9 +55,9 @@ export function createEngine({ corridors, watchlist = { byImo: {}, byMmsi: {}, u
     const c = corridors.corridor(lon, lat); v.corridor = c ? c.name : null;
     let t = tracks.get(mmsi); if (!t) tracks.set(mmsi, (t = []));
     const p = t[t.length - 1];
-    if (!p || ts - p[2] >= 30e3 || distNm(p[0], p[1], lon, lat) > 0.1) t.push([lon, lat, ts, v.sog ?? 0, v.cog ?? 0, nav]);
+    if (!p || ts - p[2] >= 30e3 || distNm(p[0], p[1], lon, lat) > 0.1) t.push([lon, lat, ts, v.sog, v.cog, nav]); // null = not available
     while (t.length && t[0][2] < ts - TRACK_MS) t.shift();
-    if (src && hooks.savePosition && ts - (lastSaved.get(mmsi) || 0) >= 60e3) { lastSaved.set(mmsi, ts); try { hooks.savePosition(mmsi, [lon, lat, ts, v.sog ?? 0, v.cog ?? 0, nav ?? 15]); } catch {} }
+    if (src && hooks.savePosition && ts - (lastSaved.get(mmsi) || 0) >= 60e3) { lastSaved.set(mmsi, ts); try { hooks.savePosition(mmsi, [lon, lat, ts, v.sog, v.cog, nav ?? 15]); } catch {} }
     dirty.add(mmsi);
     if (src) { msgTimes.push(Date.now()); feeds[src].last = Date.now(); }
     if (evaluateNow) evalVessel(v);
@@ -199,7 +199,12 @@ export function createEngine({ corridors, watchlist = { byImo: {}, byMmsi: {}, u
     const t0 = Date.now();
     for (const v of vessels.values()) {
       if (v.lat == null) continue;
-      if (t0 - v.ts > DROP_MS) { removed.add(v.mmsi); v.lat = null; tracks.delete(v.mmsi); continue; }
+      if (t0 - v.ts > DROP_MS) {
+        removed.add(v.mmsi); v.lat = null; tracks.delete(v.mmsi);
+        const a = alerts.get(v.mmsi);
+        if (a) { alerts.delete(v.mmsi); v.level = null; emit('alert_clear', { id: a.id, mmsi: v.mmsi }); }
+        continue;
+      }
       evalVessel(v, t0);
     }
     lastSweepMs = Date.now() - t0;

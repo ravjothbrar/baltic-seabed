@@ -1,5 +1,5 @@
 {
-  "note": "Compiled from cross-checked search results; source pages not opened directly. Verify before citing.",
+  "note": "Compiled from cross-checked search results; source pages not opened directly. Verify before citing. Each incident's fieldSources maps each field (date, assets, vessel, location, summary, outcome) to indices in its sources list that support that field; fields with no supporting source are listed in unsourced. Locations are approx region centroids: fieldSources.location cites the described area, not exact coordinates, since no source gives coordinates.",
   "incidents": [
     {
       "id": "nord-stream-2022",
@@ -9,7 +9,9 @@
         "Nord Stream 1",
         "Nord Stream 2"
       ],
-      "vessel": null,
+      "vessel": {
+        "name": "Andromeda (sailing yacht, alleged)"
+      },
       "lat": 55.5,
       "lon": 15.6,
       "approx": true,
@@ -41,8 +43,24 @@
         {
           "label": "US News (Reuters)",
           "url": "https://www.usnews.com/news/world/articles/2026-09-24/croatian-court-allows-extradition-of-nord-stream-blast-suspect-to-germany-media-reports"
+        },
+        {
+          "label": "Al Jazeera (Reuters/AP)",
+          "url": "https://www.aljazeera.com/news/2026/7/2/german-prosecutors-charge-ukrainian-suspect-over-nord-stream-explosions"
+        },
+        {
+          "label": "CBC Investigates",
+          "url": "https://amp.cbc.ca/news/investigates/nord-stream-pipeline-explosion-ukraine-diver-1.7296527"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [1],
+        "assets": [1, 2],
+        "vessel": [1, 6, 7],
+        "location": [1, 2],
+        "summary": [1, 2],
+        "outcome": [1, 2, 4, 5]
+      }
     },
     {
       "id": "newnew-polar-bear-2023",
@@ -88,8 +106,24 @@
         {
           "label": "AP (via Yahoo)",
           "url": "https://www.yahoo.com/news/articles/chinese-sea-captain-pleads-not-053920224.html"
+        },
+        {
+          "label": "SCMP",
+          "url": "https://scmp.com/news/china/article/3274378/estonian-defence-minister-dubious-about-chinas-claim-pipeline-damage-was-accidental"
+        },
+        {
+          "label": "gCaptain",
+          "url": "https://gcaptain.com/three-baltic-pipe-and-cable-incidents-are-related"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [4, 5],
+        "assets": [4, 5, 7],
+        "vessel": [1, 4, 5],
+        "location": [1, 5],
+        "summary": [0, 1, 2, 5],
+        "outcome": [1, 3, 4, 5, 6]
+      }
     },
     {
       "id": "yi-peng-3-2024",
@@ -130,8 +164,24 @@
         {
           "label": "Atlantic Council",
           "url": "https://www.atlanticcouncil.org/blogs/new-atlanticist/suspected-sabotage-by-a-chinese-vessel-in-the-baltic-sea-speaks-to-a-wider-threat/"
+        },
+        {
+          "label": "Bloomberg",
+          "url": "https://www.bloomberg.com/news/articles/2024-12-21/chinese-vessel-linked-to-broken-baltic-sea-data-cables-sails-off"
+        },
+        {
+          "label": "Baird Maritime (Reuters)",
+          "url": "https://www.bairdmaritime.com/security/incidents/swedish-probe-inconclusive-on-evidence-of-deliberate-cable-damage-by-chinese-ship"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [0],
+        "assets": [1, 2, 4],
+        "vessel": [1, 2, 4],
+        "location": [0, 6],
+        "summary": [1, 2],
+        "outcome": [5, 6]
+      }
     },
     {
       "id": "eagle-s-2024",
@@ -178,8 +228,24 @@
         {
           "label": "NPR",
           "url": "https://www.npr.org/2024/12/27/g-s1-40114/finland-russia-vessel-undersea-cables"
+        },
+        {
+          "label": "CBC",
+          "url": "https://amp.cbc.ca/lite/story/1.7419168"
+        },
+        {
+          "label": "VesselFinder (IMO record)",
+          "url": "https://www.vesselfinder.com/vessels/details/9329760"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [4, 5, 6],
+        "assets": [5, 6],
+        "vessel": [1, 4, 7],
+        "location": [5, 6],
+        "summary": [4, 5, 6],
+        "outcome": [0, 1, 2, 3]
+      }
     },
     {
       "id": "vezhen-2025",
@@ -220,7 +286,15 @@
           "label": "Maritime Executive",
           "url": "https://maritime-executive.com/article/swedish-prosecutors-confirm-january-cable-break-was-accident-by-bulker"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [0],
+        "assets": [0, 4],
+        "vessel": [0, 3],
+        "location": [0, 4],
+        "summary": [0],
+        "outcome": [1, 2, 3, 4]
+      }
     },
     {
       "id": "fitburg-2025",
@@ -265,8 +339,24 @@
         {
           "label": "The Moscow Times",
           "url": "https://www.themoscowtimes.com/2026/11/05/finland-jails-russian-captain-and-azerbaijani-crew-member-over-baltic-sea-cable-damage-a94185"
+        },
+        {
+          "label": "ERR News",
+          "url": "https://news.err.ee/1609898537/finland-detains-vessel-after-cable-damaged-between-tallinn-and-helsinki"
+        },
+        {
+          "label": "The Record",
+          "url": "https://therecord.media/finland-brings-charges-against-cargo-ship-undersea-cables"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [1, 2, 6],
+        "assets": [1, 2],
+        "vessel": [1, 2, 6],
+        "location": [1, 2, 6],
+        "summary": [1, 2, 6],
+        "outcome": [0, 3, 4, 5, 7]
+      }
     },
     {
       "id": "liepaja-2026",
@@ -300,7 +390,15 @@
           "label": "ThePrint (Reuters)",
           "url": "https://theprint.in/world/latvia-finds-no-link-between-ship-and-baltic-cable-breach-probe-goes-on/2819399"
         }
-      ]
+      ],
+      "fieldSources": {
+        "date": [0],
+        "assets": [0, 1],
+        "vessel": [2, 3],
+        "location": [0, 3],
+        "summary": [0, 1],
+        "outcome": [2, 3]
+      }
     }
   ]
 }

@@ -2,6 +2,9 @@
 # Runs on every push to main and every 15 min. Each scheduled run samples ~10 min of live AIS and
 # extends data/history.json, so visitors see 6 h of track history the moment the page opens.
 # One-time setup: repo Settings → Pages → Source: "GitHub Actions".
+# Optional repo secrets (Settings → Secrets and variables → Actions):
+#   AISSTREAM_API_KEY  whole-Baltic AIS in the 15-min history (aisstream.io, free)
+#   GFW_API_TOKEN      satellite radar detections of ships not on AIS (globalfishingwatch.org, free, non-commercial)
 name: pages
 on:
   push:
@@ -35,11 +38,22 @@ jobs:
         run: npm --prefix web run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
-      - name: Extend track history
+          VITE_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+      - name: Extend track history (Digitraffic + aisstream.io if AISSTREAM_API_KEY is set)
         run: node --no-warnings scripts/build-history.mjs web/dist/data/history.json
         env:
           PREV_URL: ${{ steps.pages.outputs.base_url }}/data/history.json
           SAMPLES: ${{ github.event_name == 'schedule' && '10' || '1' }}
+          AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+      - name: Satellite radar detections (daily; needs GFW_API_TOKEN)
+        run: node --no-warnings scripts/build-sar.mjs web/dist/data/sar.json
+        env:
+          PREV_URL: ${{ steps.pages.outputs.base_url }}/data/sar.json
+          GFW_API_TOKEN: ${{ secrets.GFW_API_TOKEN }}
+      - name: Daily brief
+        run: node --no-warnings scripts/build-brief.mjs web/dist/data/history.json web/dist/data/brief.json web/dist/data/sar.json
+        env:
+          PREV_URL: ${{ steps.pages.outputs.base_url }}/data/brief.json
       - run: cp server/data/watchlist.json web/dist/data/watchlist.json
       - uses: actions/upload-pages-artifact@v3
         with:

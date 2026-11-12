@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { VectorMapProvider, addPlaceLabels, createDeclutter } from './basemap.js';
+import { REGIONS, kmBetween } from './geoutil.js';
 
 const C = Cesium.Color;
 const COL = {
@@ -18,14 +19,7 @@ const COL = {
   glider: C.fromCssColorString('#53f0c9'),
 };
 
-export const REGIONS = {
-  BALTIC: { lon: 20.2, lat: 57.6, range: 1500000, pitch: -52 },
-  'GULF OF FINLAND': { lon: 25.4, lat: 59.75, range: 380000, pitch: -48 },
-  'ÅLAND': { lon: 20.2, lat: 60.0, range: 300000, pitch: -50 },
-  GOTLAND: { lon: 18.6, lat: 57.3, range: 380000, pitch: -50 },
-  BORNHOLM: { lon: 14.9, lat: 55.2, range: 240000, pitch: -50 },
-  'DANISH STRAITS': { lon: 11.6, lat: 55.7, range: 330000, pitch: -50 },
-};
+export { REGIONS, kmBetween };
 
 function canvasIcon(draw, size = 32) {
   const c = document.createElement('canvas');
@@ -84,14 +78,6 @@ function densify(coords, maxKm = 15) {
   return out;
 }
 
-export function kmBetween(lon1, lat1, lon2, lat2) {
-  const R = 6371;
-  const toR = Math.PI / 180;
-  const dLat = (lat2 - lat1) * toR;
-  const dLon = (lon2 - lon1) * toR;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
 
 export function createGlobe(container) {
   Cesium.Ion.defaultAccessToken = undefined;
@@ -538,24 +524,30 @@ export function createGlobe(container) {
     look(lon, lat, range, -55, duration);
   }
   let spinning = false;
+  // The Baltic box the flat map opens on. The swoop ends on exactly this framing (top-down) so the cross-fade
+  // into the flat map reads as one continuous zoom.
+  const BALTIC_RECT = Cesium.Rectangle.fromDegrees(9.3, 53.6, 30.6, 66.0);
   function heroStart() {
-    // whole-earth view, Baltic slightly above centre, slow spin
-    viewer.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(10, 44, 17500000) });
-    // offset the globe from the headline: right on desktop, up on portrait phones
+    // Baltic-centred hemisphere from the first frame. On desktop the globe sits right of the headline; on
+    // portrait phones it sits above it. Only a very slow drift, which keeps the Baltic in view.
     const portrait = scene.canvas.clientHeight > scene.canvas.clientWidth;
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(20.5, 58.2, portrait ? 17500000 : 15000000),
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+    });
+    // shift the disc beside the headline (right on desktop, up on phones); the Baltic stays at its centre
     if (portrait) viewer.camera.lookDown(Cesium.Math.toRadians(11.5));
     else viewer.camera.lookLeft(Cesium.Math.toRadians(9.2));
     spinning = true;
   }
-  function heroEnd(onDone) {
+  function heroEnd(onDone, { duration = 1.6 } = {}) {
     spinning = false;
-    const r = REGIONS.BALTIC;
-    const f = aspectFactor();
-    const sphere = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(r.lon, r.lat - (f > 1 ? 1.2 : 0), 0), 1);
-    viewer.camera.flyToBoundingSphere(sphere, {
-      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(r.pitch), r.range * f),
-      duration: 4.2,
-      easingFunction: Cesium.EasingFunction.QUINTIC_IN_OUT,
+    viewer.camera.flyTo({
+      destination: BALTIC_RECT,
+      orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+      duration,
+      easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
+      maximumHeight: undefined,
       complete: onDone,
     });
   }
@@ -578,7 +570,7 @@ export function createGlobe(container) {
   let lastDeclutter = 0;
   scene.preRender.addEventListener(() => {
     const t = (performance.now() - t0) / 1000;
-    if (spinning) viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0009);
+    if (spinning) viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.00012); // gentle drift, Baltic stays in view
     // alert pulses
     const ph = (t % 1.6) / 1.6;
     for (let i = 0; i < pulsePoints.length; i++) {

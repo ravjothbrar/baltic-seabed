@@ -36,7 +36,10 @@ export function createDataSource() {
       for (const [mmsi, rows] of Object.entries(history.tracks)) {
         engine.seedTrack(+mmsi, rows.filter((r) => r[2] * 1000 > cutoff).map((r) => [r[0], r[1], r[2] * 1000, r[3], r[4], r[5]]));
       }
-      engine.feeds.history = { ...engine.feeds.history, ok: true, last: history.generated ? Date.parse(history.generated) : null, vessels: Object.keys(history.tracks).length };
+      const gen = history.generated ? Date.parse(history.generated) : null;
+      engine.feeds.history = { ...engine.feeds.history, ok: true, last: gen, vessels: Object.keys(history.tracks).length };
+      // Whole-Baltic AIS arrives via the 15-min snapshots (the aisstream key lives only in GitHub Actions).
+      if (history.aisstream) engine.feeds.aisstream = { ...engine.feeds.aisstream, enabled: true, ok: Date.now() - gen < 60 * 60e3, last: gen, label: 'aisstream.io · 15-min snapshots' };
     }
     await Promise.all([engine.pollDigitrafficMeta(), engine.pollDigitraffic()]);
     engine.sweep();
