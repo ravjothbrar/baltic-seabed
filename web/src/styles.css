@@ -883,3 +883,22 @@ body.hero-on .mapctl { display: none; }
 }
 .gl .ctl { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 .gl .ro { grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); }
+
+/* ── lazy Cesium: CSS globe placeholder while the 3D engine loads ────── */
+#globe::before {
+  content: ''; position: absolute; z-index: 0; pointer-events: none; opacity: 0;
+  left: 64%; top: 50%; width: min(74vh, 52vw); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  background:
+    radial-gradient(circle at 58% 34%, rgba(150, 190, 220, 0.20), transparent 46%),
+    radial-gradient(circle at 50% 50%, #16304a 0%, #0c1d2e 58%, #060d16 72%, transparent 72.5%);
+  box-shadow: 0 0 60px 6px rgba(70, 150, 230, 0.20), inset 0 0 40px rgba(90, 170, 255, 0.25);
+  transition: opacity .8s ease;
+}
+body.hero-on:not(.globe-ready) #globe::before { opacity: 1; animation: phGlow 3s ease-in-out infinite; }
+@keyframes phGlow { 50% { box-shadow: 0 0 80px 10px rgba(70, 150, 230, 0.28), inset 0 0 46px rgba(90, 170, 255, 0.32); } }
+body.hero-on #globe .cesium-widget { opacity: 0; transition: opacity .9s ease; }
+body.hero-on.globe-ready #globe .cesium-widget { opacity: 1; }
+@media (max-width: 900px) { #globe::before { left: 50%; top: 32%; width: 82vw; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

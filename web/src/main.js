@@ -1,7 +1,7 @@
 import { asset } from './base.js';
 import { createDataSource } from './datasource.js';
 import './styles.css';
-import { createGlobe, REGIONS, kmBetween } from './globe.js';
+import { REGIONS, kmBetween } from './geoutil.js';
 import { createFlatMap } from './flatmap.js';
 import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
@@ -432,7 +432,7 @@ function setPreset(p) {
   document.body.classList.remove('p-sonar', 'p-nvg', 'p-clean');
   if (p !== 'NORMAL') document.body.classList.add(`p-${p.toLowerCase()}`);
   renderPresets();
-  setTimeout(() => { globe.viewer.resize(); flat.resize(); }, 50);
+  setTimeout(() => { resize3d(); flat.resize(); }, 50);
   if (p === 'CLEAN') showToastPreset();
 }
 function showToastPreset() {
@@ -987,7 +987,7 @@ function layoutForViewport() {
     panels.sort((a, b) => order.indexOf($('.t', a).textContent) - order.indexOf($('.t', b).textContent));
     panels.forEach((p) => { p.hidden = false; if (p.dataset.home) homes[p.dataset.home].appendChild(p); });
   }
-  setTimeout(() => { globe.viewer.resize(); flat.resize(); buildRing(); }, 60);
+  setTimeout(() => { resize3d(); flat.resize(); buildRing(); }, 60);
 }
 function setSheetTab(t, expand) {
   sheetTab = t;
@@ -999,35 +999,66 @@ function setSheetTab(t, expand) {
 // ---------------------------------------------------------------- globe + events
 // Two views of the same data: the flat d3 map (default dashboard view) and the Cesium globe (intro + GLOBE mode).
 // Data setters go to both; camera, picking and counting go to whichever is active.
-const globe3d = createGlobe($('#globe'));
+// Cesium (~3.6 MB) is loaded on demand: only for the intro globe or 3D GLOBE mode. Until it loads, data-setter calls
+// are recorded and replayed into it, so the globe always shows the same picture as the flat map.
+let globe3d = null, globeLoading = null;
+const replay = new Map();
+const gHandlers = [];
+const REDUCED = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function record(k, a) {
+  if (k === 'upsertVessels' || k === 'removeVessels') return; // replayed from state.vessels instead
+  if (k === 'setLayer') replay.set(`setLayer:${a[0]}`, [k, a]);
+  else if (k === 'showTrack' || k === 'clearTrack') replay.set('track', [k, a]);
+  else replay.set(k, [k, a]);
+}
+function loadGlobe() {
+  if (!globeLoading) {
+    globeLoading = import('./globe.js').then(({ createGlobe }) => {
+      globe3d = createGlobe($('#globe'));
+      for (const [ev, f] of gHandlers) globe3d.on(ev, f);
+      for (const [k, a] of replay.values()) globe3d[k](...a);
+      if (state.vessels.size) globe3d.upsertVessels([...state.vessels.values()]);
+      if (viewMode === 'flat') globe3d.viewer.useDefaultRenderLoop = false;
+      window.__bsw.globe = globe3d;
+      return globe3d;
+    });
+  }
+  return globeLoading;
+}
+const resize3d = () => globe3d?.viewer.resize();
 const flat = createFlatMap($('#flat'));
 let viewMode = 'globe'; // 'globe' during the intro, then 'flat'
-const activeView = () => (viewMode === 'flat' ? flat : globe3d);
+const activeView = () => (viewMode === 'flat' || !globe3d ? flat : globe3d);
 const BOTH = ['setInfra', 'setCoast', 'setLand', 'setIncidents', 'upsertVessels', 'removeVessels', 'setFocus', 'setGliders', 'setLayer', 'showTrack', 'clearTrack', 'setReserved'];
 const globe = {
-  viewer: globe3d.viewer,
-  heroStart: () => globe3d.heroStart(),
-  heroEnd: (cb) => globe3d.heroEnd(cb),
+  heroStart: () => globe3d?.heroStart(),
+  heroEnd: (cb) => (globe3d ? globe3d.heroEnd(cb) : cb()),
   flyRegion: (...a) => activeView().flyRegion(...a),
   flyPoint: (...a) => activeView().flyPoint(...a),
   countInView: () => activeView().countInView(),
-  setTasking: (a) => { const r = flat.setTasking(a); globe3d.setTasking(viewMode === 'globe' ? a : null); return r; },
-  on: (ev, f) => { flat.on(ev, (...a) => viewMode === 'flat' && f(...a)); globe3d.on(ev, (...a) => viewMode === 'globe' && f(...a)); },
+  setTasking: (a) => { const r = flat.setTasking(a); globe3d?.setTasking(viewMode === 'globe' ? a : null); return r; },
+  on: (ev, f) => { flat.on(ev, (...a) => viewMode === 'flat' && f(...a)); const g = (...a) => viewMode === 'globe' && f(...a); gHandlers.push([ev, g]); globe3d?.on(ev, g); },
 };
-for (const k of BOTH) globe[k] = (...a) => { flat[k](...a); return globe3d[k](...a); };
-function setViewMode(m, { fly = true } = {}) {
+for (const k of BOTH) globe[k] = (...a) => { flat[k](...a); record(k, a); return globe3d?.[k](...a); };
+async function setViewMode(m, { fly = true } = {}) {
+  if (m === 'globe' && !globe3d) {
+    const btn = $('#b-mode'); btn.textContent = 'LOADING…'; btn.disabled = true;
+    try { await loadGlobe(); } finally { btn.disabled = false; }
+  }
   viewMode = m;
   document.body.classList.toggle('view-flat', m === 'flat');
   document.body.classList.toggle('view-globe', m === 'globe');
-  if (m === 'globe') globe3d.viewer.useDefaultRenderLoop = true;
-  else setTimeout(() => { if (viewMode === 'flat') globe3d.viewer.useDefaultRenderLoop = false; }, 800); // after the cross-fade
+  if (globe3d) {
+    if (m === 'globe') globe3d.viewer.useDefaultRenderLoop = true;
+    else setTimeout(() => { if (viewMode === 'flat' && globe3d) globe3d.viewer.useDefaultRenderLoop = false; }, 800); // after the cross-fade
+  }
   $('#b-mode').textContent = m === 'flat' ? '3D GLOBE' : '2D MAP';
   if (m === 'flat') { flat.resize(); if (fly) flat.flyRegion(state.region || 'BALTIC', 0); }
-  else { globe3d.viewer.resize(); if (fly) globe3d.flyRegion(state.region || 'BALTIC', 1.2); }
+  else { resize3d(); if (fly) globe3d.flyRegion(state.region || 'BALTIC', REDUCED ? 0 : 1.2); }
   if (state.selectedAlert) { const a = state.alerts.get(state.selectedAlert); globe.setTasking(a || null); }
   buildRing();
 }
-window.__bsw = { globe: globe3d, flat, state, setViewMode }; // debug handle
+window.__bsw = { globe: null, flat, state, setViewMode, loadGlobe }; // debug handle
 
 buildRing();
 renderRegions();
@@ -1050,8 +1081,9 @@ function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
-  globe.viewer.resize(); flat.resize(); buildRing(); // size the frame first so the swoop targets the final layout
-  globe.heroEnd(() => { introDone = true; setViewMode('flat'); maybeOfferTour(); });
+  resize3d(); flat.resize(); buildRing(); // size the frame first so the swoop targets the final layout
+  const done = () => { introDone = true; setViewMode('flat'); maybeOfferTour(); };
+  if (globe3d && !REDUCED) globe.heroEnd(done); else done(); // no swoop if Cesium isn't ready yet or motion is reduced
   setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1900);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
 }
@@ -1059,13 +1091,13 @@ if (params.has('nohero')) {
   introDone = true;
   $('#hero').remove();
   setViewMode('flat');
-  globe3d.flyRegion('BALTIC', 0);
   setTimeout(maybeOfferTour, 1500);
 } else {
   document.body.classList.add('hero-on');
   document.body.classList.add('view-globe');
-  globe.heroStart();
-  setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
+  // hero typography shows at once over a CSS globe; Cesium fades in when it has loaded
+  loadGlobe().then(() => { if (!document.body.classList.contains('hero-on')) return; globe.heroStart(); resize3d(); buildRing(); document.body.classList.add('globe-ready'); });
+  setTimeout(buildRing, 30);
   $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
   if (!HOLD) setTimeout(exitHero, 5200);
@@ -1141,8 +1173,8 @@ function flyIncident(id) {
 
 document.addEventListener('click', (e) => {
   const t = e.target;
-  if (t.closest('#z-in')) { viewMode === 'flat' ? flat.zoomBy(1.8) : globe3d.viewer.camera.zoomIn(globe3d.viewer.camera.positionCartographic.height * 0.4); return; }
-  if (t.closest('#z-out')) { viewMode === 'flat' ? flat.zoomBy(1 / 1.8) : globe3d.viewer.camera.zoomOut(globe3d.viewer.camera.positionCartographic.height * 0.6); return; }
+  if (t.closest('#z-in')) { viewMode === 'flat' || !globe3d ? flat.zoomBy(1.8) : globe3d.viewer.camera.zoomIn(globe3d.viewer.camera.positionCartographic.height * 0.4); return; }
+  if (t.closest('#z-out')) { viewMode === 'flat' || !globe3d ? flat.zoomBy(1 / 1.8) : globe3d.viewer.camera.zoomOut(globe3d.viewer.camera.positionCartographic.height * 0.6); return; }
   if (t.closest('#b-mode')) { setViewMode(viewMode === 'flat' ? 'globe' : 'flat'); return; }
   const reg = t.closest('.tab[data-r]');
   if (reg) { state.region = reg.dataset.r; renderRegions(); globe.flyRegion(state.region); return; }

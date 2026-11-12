@@ -7,8 +7,8 @@ import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { easeCubicInOut } from 'd3-ease';
-import { PLACES } from './basemap.js';
-import { kmBetween } from './globe.js';
+import { PLACES } from './places.js';
+import { kmBetween } from './geoutil.js';
 
 const COL = {
   telecom: '#3fd8ff', power: '#b39bff', pipeline: '#ffb547',
@@ -64,7 +64,8 @@ export function createFlatMap(container) {
   const path = geoPath(projection);
   let T = zoomIdentity;
   const listeners = { pick: [], hover: [], camera: [] };
-  const layerVis = { telecom: true, power: true, pipeline: true, vessels: true, incidents: true, gliders: true };
+  const layerVis = { telecom: true, power: true, pipeline: true, vessels: true, incidents: true, gliders: true, sar: true };
+  let sar = []; // satellite-radar detections not matched to AIS: { x, y, n, last }
   let reserved = () => [];
 
   // ---------- data ----------
@@ -150,6 +151,10 @@ export function createFlatMap(container) {
     applyVis(); redrawLabels();
   }
 
+  function setSar(cells) {
+    sar = (cells || []).map(([lon, lat, n, last]) => { const [x, y] = P(lon, lat); return { x, y, n, last, lon, lat }; });
+    draw();
+  }
   function setIncidents(list) {
     incidents = (list || []).filter((i) => typeof i.lat === 'number').map((inc) => { const [x, y] = P(inc.lon, inc.lat); return { inc, x, y }; });
     incLabels = incidents.map(({ inc }, idx) => ({
@@ -267,6 +272,7 @@ export function createFlatMap(container) {
   const hasAlerts = () => alertCount > 0 && layerVis.vessels;
   const sx = (x) => T.k * x + T.x, sy = (y) => T.k * y + T.y;
 
+  const sarSize = (n) => 5 + Math.min(12, Math.sqrt(n) * 2.4);
   function pxPerKm(lat) {
     const a = P(20, lat), b = P(20, lat + 1 / 110.57);
     return Math.abs(b[1] - a[1]) * T.k;
@@ -277,6 +283,15 @@ export function createFlatMap(container) {
     if (countDirty) { countDirty = false; emitCameraSoon(); }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    // satellite radar detections with no AIS match: hollow amber squares sized by count
+    if (layerVis.sar && sar.length) {
+      ctx.strokeStyle = 'rgba(255,181,71,0.9)'; ctx.lineWidth = 1.3;
+      for (const c of sar) {
+        const X = sx(c.x), Y = sy(c.y), s = sarSize(c.n);
+        if (X < -s || Y < -s || X > W + s || Y > H + s) continue;
+        ctx.strokeRect(X - s / 2, Y - s / 2, s, s);
+      }
+    }
     // gliders (sim): faint discs + small chevrons drifting on a racetrack
     if (layerVis.gliders && gliders.length) {
       const ppk = pxPerKm(59);
@@ -424,6 +439,7 @@ export function createFlatMap(container) {
     }
     if (best) return best;
     if (layerVis.incidents) for (const i of incidents) if (Math.abs(sx(i.x) - mx) < 9 && Math.abs(sy(i.y) - my) < 9) return { kind: 'incident', id: i.inc.id };
+    if (layerVis.sar) for (const c of sar) { const h = sarSize(c.n) / 2 + 3; if (Math.abs(sx(c.x) - mx) < h && Math.abs(sy(c.y) - my) < h) return { kind: 'sar', n: c.n, last: c.last, lon: c.lon, lat: c.lat }; }
     if (layerVis.gliders) for (const [n, g] of gliders.entries()) if (Math.abs(sx(g.x) - mx) < 6 && Math.abs(sy(g.y) - my) < 6) return { kind: 'glider', i: n };
     // infra: distance to segments in base coords
     const bx = T.invertX(mx), by = T.invertY(my), tol = 6 / T.k;
@@ -471,7 +487,7 @@ export function createFlatMap(container) {
   fit();
 
   return {
-    setInfra, setCoast, setLand, setIncidents, upsertVessels, removeVessels, setFocus,
+    setInfra, setCoast, setLand, setIncidents, setSar, upsertVessels, removeVessels, setFocus,
     showTrack, clearTrack, setGliders, setTasking, setLayer, flyRegion, flyPoint, zoomBy, countInView,
     setReserved: (f) => { reserved = f; },
     getFocus: () => focus,
