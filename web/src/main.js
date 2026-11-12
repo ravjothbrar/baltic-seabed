@@ -2,11 +2,15 @@ import { asset } from './base.js';
 import { createDataSource } from './datasource.js';
 import './styles.css';
 import { REGIONS, kmBetween } from './geoutil.js';
-import { createFlatMap } from './flatmap.js';
+import { createFlatMap, FLAT_VIEW } from './flatmap.js';
 import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
 import { renderBrief } from './brief.js';
+import { createHeroGlobe } from './heroglobe.js';
 const ds = createDataSource();
+// Intro globe first, so its land file (preloaded by index.html) paints as early as possible.
+let heroGlobe = document.documentElement.classList.contains('nohero') ? null
+  : createHeroGlobe(document.getElementById('intro-globe'), { landUrl: asset('geo/hero-land.json'), reduced: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches });
 
 // ---------------------------------------------------------------- constants
 const SIGNALS = {
@@ -188,20 +192,6 @@ document.querySelector('#app').innerHTML = `
 `;
 
 document.body.insertAdjacentHTML('beforeend', `
-  <div class="hero" id="hero">
-    <div class="hero-top"><span>BALTIC SEABED WATCH</span><span>OPEN-SOURCE MARITIME AWARENESS</span><span id="hero-utc">—</span></div>
-    <div class="hero-mid">
-      <div class="hero-k"><span class="hero-dot"></span>LIVE · <span id="hero-n">—</span> SHIPS · <span id="hero-km">—</span> KM OF MAPPED SEABED LINES</div>
-      <h1><span>The seabed is the</span><span>new front line.</span></h1>
-      <p>Ships, cables and pipelines across the Baltic, watched live from public data. It flags the patterns, says how weak they are, and shows what persistent underwater sensing would add.</p>
-      <div class="hero-actions"><button class="hero-go" id="hero-go">ENTER <span>▸</span></button><a class="hero-how" href="./how.html">HOW IT WORKS</a><a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a></div>
-    </div>
-    <div class="hero-foot">
-      <span>01 · LIVE AIS</span><span>02 · CABLES &amp; PIPELINES</span><span>03 · SANCTIONS LISTS</span><span>04 · INCIDENT LOG</span><span>05 · GLIDER COVERAGE (SIM)</span>
-      <span class="sp"></span><span>CLICK, SCROLL OR PRESS ANY KEY</span><span class="hero-tap">TAP ANYWHERE TO ENTER</span>
-    </div>
-    <div class="hero-bar"><i></i></div>
-  </div>
   <div class="tip" id="tip"></div>
   <div class="modal" id="modal"><div class="box">
     <button class="chip btn x" id="modal-x">CLOSE</button>
@@ -871,6 +861,7 @@ async function loadOptional(name) {
 }
 
 async function loadStatic() {
+  if (heroGlobe && !heroGlobe.landAt) await new Promise((res) => { heroGlobe.on('land', res); setTimeout(res, 1500); });
   if (!coastLoaded) getJSON(asset('geo/coast.json')).then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
   if (!state.landLoaded) getJSON(asset('geo/land.json')).then((l) => { if (l) { state.landLoaded = true; globe.setLand(l); } });
   const [infra, incidents, grid, sar, brief] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json')), loadOptional('sar'), loadOptional('brief')]);
@@ -879,12 +870,14 @@ async function loadStatic() {
   if (infra && infra.features) {
     state.infra = infra;
     globe.setInfra(infra);
+    heroGlobe?.setInfra(infra.features);
   }
   const incList = Array.isArray(incidents) ? incidents : Array.isArray(incidents?.incidents) ? incidents.incidents : null;
   if (incList) {
     state.incidents = incList;
     state.incidentNote = incidents?.note || null;
     globe.setIncidents(incList);
+    heroGlobe?.setIncidents(incList);
   }
   if (grid && grid.cells) {
     state.grid = grid;
@@ -928,6 +921,7 @@ function applyVessels(upd, del) {
   if (upd?.length) {
     for (const v of upd) state.vessels.set(v.mmsi, v);
     globe.upsertVessels(upd);
+    if (heroGlobe) heroGlobe.setVessels([...state.vessels.values()]);
     state.lastVesselMsg = Date.now();
   }
   if (del?.length) {
@@ -1068,12 +1062,10 @@ function loadGlobe() {
 }
 const resize3d = () => globe3d?.viewer.resize();
 const flat = createFlatMap($('#flat'));
-let viewMode = 'globe'; // 'globe' during the intro, then 'flat'
+let viewMode = 'flat'; // flat map by default; 'globe' only when the user opens 3D GLOBE
 const activeView = () => (viewMode === 'flat' || !globe3d ? flat : globe3d);
 const BOTH = ['setInfra', 'setCoast', 'setLand', 'setIncidents', 'upsertVessels', 'removeVessels', 'setFocus', 'setGliders', 'setLayer', 'showTrack', 'clearTrack', 'setReserved'];
 const globe = {
-  heroStart: () => globe3d?.heroStart(),
-  heroEnd: (cb) => (globe3d ? globe3d.heroEnd(cb) : cb()),
   flyRegion: (...a) => activeView().flyRegion(...a),
   flyPoint: (...a) => activeView().flyPoint(...a),
   countInView: () => activeView().countInView(),
@@ -1118,38 +1110,39 @@ let introDone = false;
 const params = new URLSearchParams(location.search);
 const HOLD = params.has('hold');
 $('#ring').classList.add('on');
+// Intro → dashboard: the canvas globe swoops onto the Baltic, framed exactly like the flat map's opening view,
+// then cross-fades into it. Cesium is never loaded for the intro (only for 3D GLOBE mode).
+const INTRO_MS = 7700;
 function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
+  ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
-  resize3d(); flat.resize(); buildRing(); // size the frame first so the swoop targets the final layout
-  const done = () => { introDone = true; setViewMode('flat'); maybeOfferTour(); };
-  if (globe3d && !REDUCED) globe.heroEnd(done); else done(); // no swoop if Cesium isn't ready yet or motion is reduced
-  setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1900);
-  ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
+  flat.resize(); buildRing(); // lay the dashboard out first so the swoop targets the final frame
+  flat.flyRegion('BALTIC', 0);
+  const hero = $('#hero');
+  const finish = () => {
+    introDone = true;
+    hero?.classList.add('done'); // canvas fades out over the flat map
+    setTimeout(() => { document.body.classList.remove('hero-out'); heroGlobe?.destroy(); heroGlobe = null; hero?.remove(); }, 550);
+    maybeOfferTour();
+  };
+  const r = $('#flat').getBoundingClientRect();
+  if (heroGlobe && !REDUCED) heroGlobe.swoop(r, FLAT_VIEW, { duration: 1400, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish });
+  else finish();
 }
+setViewMode('flat', { fly: false });
 if (params.has('nohero')) {
   introDone = true;
-  $('#hero').remove();
-  setViewMode('flat');
+  document.body.classList.remove('hero-on');
+  $('#hero')?.remove();
   setTimeout(maybeOfferTour, 1500);
 } else {
-  document.body.classList.add('hero-on');
-  document.body.classList.add('view-globe');
-  // hero typography shows at once over a CSS globe; Cesium fades in when it has loaded
-  // reduced motion: keep the static CSS globe, skip the 3D engine entirely
-  if (!REDUCED) loadGlobe().then(() => { if (!document.body.classList.contains('hero-on')) return; globe.heroStart(); resize3d(); buildRing();
-    // keep the CSS placeholder until the globe's tiles have actually drawn (max 4 s)
-    const t0 = performance.now();
-    const ready = () => (globe3d.viewer.scene.globe.tilesLoaded || performance.now() - t0 > 4000 ? document.body.classList.add('globe-ready') : setTimeout(ready, 120));
-    setTimeout(ready, 200);
-  });
-  setTimeout(buildRing, 30);
-  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline, .hero-how')) return; exitHero(e); });
+  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
-  if (!HOLD) setTimeout(exitHero, 5200);
+  if (!HOLD) setTimeout(exitHero, INTRO_MS);
 }
-setInterval(() => { const h = $('#hero-utc'); if (h) h.textContent = utc(); const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
+setInterval(() => { const n = $('#hero-n'); if (n && state.vessels.size) n.textContent = fmt(state.vessels.size); }, 500);
 
 globe.on('camera', (c) => {
   $('#h-cam').textContent = `${Math.abs(c.lat).toFixed(3)}°${c.lat >= 0 ? 'N' : 'S'}  ${Math.abs(c.lon).toFixed(3)}°${c.lon >= 0 ? 'E' : 'W'}`;
@@ -1351,7 +1344,7 @@ const TOUR_STEPS = [
 const tour = createTour(TOUR_STEPS, { onEnd: () => { if (MOBILE()) { setSheetTab('ALERTS'); $('#sheet').classList.add('min'); } } });
 function startTour() { $('.tour-offer')?.remove(); tour.start(); }
 function maybeOfferTour() { if (!params.has('notour') && !params.has('tour') && !tour.active()) offerTour(startTour); }
-if (params.has('tour')) setTimeout(startTour, params.has('nohero') ? 1200 : 6500);
+if (params.has('tour')) setTimeout(startTour, params.has('nohero') ? 1200 : 7700 + 2200);
 
 window.addEventListener('resize', () => { layoutForViewport(); buildRing(); });
 layoutForViewport();

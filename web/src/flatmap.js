@@ -17,6 +17,7 @@ const COL = {
 };
 // Baltic view box (lon/lat) and region boxes for the tabs.
 const VIEW = [[9.3, 53.6], [30.6, 66.0]];
+export const FLAT_VIEW = VIEW;
 export const FLAT_REGIONS = {
   BALTIC: null,
   'GULF OF FINLAND': [[22.4, 58.9], [30.4, 60.95]],
