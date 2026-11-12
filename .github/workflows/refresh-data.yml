@@ -1,4 +1,5 @@
-# Weekly: rebuild cable/pipeline layers and the sanctions watchlist, commit if changed (which redeploys).
+# Weekly (or run manually): rebuild cable/pipeline layers incl. OpenStreetMap power cables via Overpass, and the
+# sanctions watchlist; commit if changed. The Pages job picks the new data up on its next 15-min run.
 name: refresh-data
 on:
   schedule:
@@ -21,5 +22,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/public/data server/data
+          git add web/public/data server/data scripts/cache/osm-power-cables.json 2>/dev/null || git add web/public/data server/data
           git diff --cached --quiet || (git commit -m "Weekly data refresh" && git push)
