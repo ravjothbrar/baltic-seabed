@@ -138,3 +138,97 @@ main { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 56px); }
   .h-brand { font-size: 11px; letter-spacing: 0.16em; }
   .h-top { padding-top: 12px; padding-bottom: 12px; }
 }
+
+/* ── Clarity-style design system (overrides above) ─────────────────────────── */
+@font-face { font-family: 'BSW Display'; src: url('/fonts/archivo-cond.woff2') format('woff2-variations'), url('/fonts/archivo-cond.woff2') format('woff2'); font-weight: 600 900; font-stretch: 62% 75%; font-display: swap; }
+@font-face { font-family: 'BSW Mono'; src: url('/fonts/plexmono-300.woff2') format('woff2'); font-weight: 300; font-display: swap; }
+@font-face { font-family: 'BSW Mono'; src: url('/fonts/plexmono-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'BSW Mono'; src: url('/fonts/plexmono-500.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+:root {
+  --bg: #000; --fg: #fff; --dim: #a9b0b4; --faint: #7d8589; --line: rgba(255, 255, 255, 0.14); --line-2: rgba(255, 255, 255, 0.3); --card: #0b0c0d;
+  --accent: #e2533f; --mint: #e2533f;
+  --mono: 'BSW Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --display: 'BSW Display', 'Arial Narrow', Impact, 'Roboto Condensed', sans-serif;
+  --ink: #fff; --ink-2: #d6dadc; --ink-3: #a9b0b4; --ink-4: #7d8589; --line-3: rgba(226, 83, 63, 0.6);
+}
+/* left tick ruler */
+body.how::before { content: ''; position: fixed; left: 7px; top: 0; bottom: 0; width: 6px; z-index: 6; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0 27px, rgba(255,255,255,.5) 27px 28px, transparent 28px 56px); }
+.h-top { background: rgba(0,0,0,.82); border-bottom: 1px solid var(--line); padding: 14px clamp(24px, 5.5vw, 108px); }
+.h-brand { display: inline-flex; align-items: center; gap: 12px; color: var(--fg); }
+.h-brand svg { width: 28px; height: 28px; }
+.h-brand span { font-family: var(--mono); font-size: 11px; letter-spacing: .22em; color: var(--dim); }
+.h-top nav { font-family: var(--mono); letter-spacing: .12em; }
+.h-top nav .h-open { color: #000; background: #fff; border: 0; padding: 9px 14px; }
+.h-top nav .h-open:hover { background: var(--accent); color: #fff; }
+main { max-width: none; padding: 0; }
+main > section { padding-left: clamp(24px, 5.5vw, 108px); padding-right: clamp(24px, 5.5vw, 108px); }
+
+/* hero: full-width mono line + giant condensed word bleeding off the bottom */
+.h-hero { position: relative; height: min(78vh, 760px); min-height: 420px; padding: 0 !important; overflow: hidden; border-bottom: 0;
+  background: radial-gradient(60% 70% at 72% 18%, rgba(255,255,255,.07), transparent 70%); }
+.h-sub { position: absolute; left: clamp(14px, 2.2vw, 40px); right: clamp(14px, 2.2vw, 40px); bottom: calc(min(30.5vw, 84vh) * .7 + 1.2vw); white-space: nowrap; overflow: hidden;
+  font: 300 4.85vw/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+.h-hero .h-word { position: absolute; left: -0.02em; bottom: -0.135em; margin: 0; line-height: .8; white-space: nowrap; color: #fff;
+  font-family: var(--display); font-weight: 900; font-stretch: 62%; font-variation-settings: 'wdth' 62, 'wght' 900; font-size: min(30.5vw, 84vh); letter-spacing: -.012em; text-transform: uppercase; }
+.h-word > span { display: inline-block; overflow: hidden; vertical-align: bottom; padding-top: .04em; }
+.h-word > span > span { display: inline-block; animation: hUp .95s cubic-bezier(.2,.75,.12,1) both; }
+.h-word > span:nth-child(2) > span { animation-delay: .06s; } .h-word > span:nth-child(3) > span { animation-delay: .12s; }
+.h-word > span:nth-child(4) > span { animation-delay: .18s; } .h-word > span:nth-child(5) > span { animation-delay: .24s; } .h-word > span:nth-child(6) > span { animation-delay: .3s; }
+@keyframes hUp { from { transform: translateY(105%); } to { transform: none; } }
+
+/* intro: copy in the right column + red-orange stats (Clarity's "> 10 TB" row) */
+.h-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 40px; padding-top: clamp(64px, 12vh, 120px); padding-bottom: clamp(64px, 12vh, 120px); }
+.h-intro .h-lede { color: #fff; font-weight: 400; font-size: clamp(17px, 1.45vw, 22px); line-height: 1.55; max-width: 900px; margin: 0 0 1.4em; letter-spacing: -.005em; }
+.h-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: clamp(40px, 7vh, 80px); }
+.h-stats div { border-top: 1px solid rgba(255,255,255,.8); padding-top: 12px; display: flex; flex-direction: column; }
+.h-stats small { font: 400 12px/1.35 var(--mono); color: #fff; min-height: 2.7em; }
+.h-stats b { margin-top: auto; padding-top: 14px; font: 400 clamp(28px, 2.9vw, 46px)/1 var(--mono); letter-spacing: .02em; color: var(--accent); white-space: nowrap; }
+
+/* "puts every public signal to work" + numbered accordion with a screenshot panel */
+.h-work { padding-top: clamp(48px, 9vh, 96px); padding-bottom: clamp(64px, 12vh, 120px); }
+.h-work-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 40px; border-top: 1px solid var(--line-2); padding-top: 26px; }
+.h-cap { margin: 0; font: 700 clamp(22px, 2vw, 32px)/1.12 Inter, system-ui, sans-serif; letter-spacing: -.01em; text-transform: uppercase; max-width: 520px; }
+.h-work-head p { margin: 0; font-size: clamp(17px, 1.5vw, 23px); line-height: 1.45; color: #fff; max-width: 900px; }
+.h-work-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 40px; margin-top: clamp(40px, 8vh, 90px); align-items: start; }
+.h-acc { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
+.h-acc li { position: relative; border-bottom: 1px solid var(--line-2); }
+.h-acc li::before { content: ''; position: absolute; left: 0; top: -1px; height: 2px; width: 0; background: var(--accent); transition: width .5s ease; }
+.h-acc li.on::before { width: 32%; }
+.h-acc button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 124px 1fr; align-items: center; padding: 18px 0; cursor: pointer;
+  font: 400 17px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.h-acc button em { font-style: normal; color: #fff; }
+.h-acc li.on button, .h-acc button:hover { color: #fff; }
+.h-acc button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.h-acc-b { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s ease; }
+.h-acc-b > p { overflow: hidden; margin: 0 0 0 124px; font-size: 15px; line-height: 1.5; color: #fff; }
+.h-acc li.on .h-acc-b { grid-template-rows: 1fr; }
+.h-acc li.on .h-acc-b > p { padding-bottom: 22px; }
+.h-shot { margin: 0; position: sticky; top: 90px; border: 1px solid var(--line); background: #07090a; aspect-ratio: 1200 / 760; overflow: hidden; }
+.h-shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: opacity .35s ease; }
+.h-shot img.fade { opacity: 0; }
+
+/* existing sections, restyled to the same system */
+.h-sec { padding-left: clamp(24px, 5.5vw, 108px) !important; padding-right: clamp(24px, 5.5vw, 108px) !important; border-bottom: 0; border-top: 1px solid var(--line-2); grid-template-columns: 124px minmax(0, 1fr); }
+.h-num { font: 400 17px var(--mono); color: #fff; letter-spacing: .06em; padding-top: 6px; }
+.h-body h2 { font-family: Inter, system-ui, sans-serif; font-weight: 700; text-transform: uppercase; font-size: clamp(22px, 2vw, 32px); letter-spacing: -.01em; line-height: 1.12; }
+.h-body p, .h-list li { color: #e9ecee; }
+.h-k { color: var(--accent); }
+.h-foot { color: #fff; }
+.h-foot a { color: #fff; }
+.h-foot a:hover { color: var(--accent); }
+
+@media (max-width: 900px) {
+  body.how::before { left: 3px; width: 4px; }
+  .h-hero { height: 56vh; min-height: 320px; }
+  .h-intro, .h-work-head, .h-work-grid { grid-template-columns: 1fr; gap: 22px; }
+  .h-intro > div:first-child { display: none; }
+  .h-stats { gap: 12px; }
+  .h-stats small { font-size: 10px; }
+  .h-stats b { font-size: clamp(17px, 5vw, 24px); }
+  .h-acc button { grid-template-columns: 56px 1fr; font-size: 14px; }
+  .h-acc-b > p { margin-left: 56px; }
+  .h-shot { position: static; }
+  .h-sec { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .h-word > span > span { animation: none; } }

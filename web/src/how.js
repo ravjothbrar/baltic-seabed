@@ -32,3 +32,32 @@ const io = 'IntersectionObserver' in window && !window.matchMedia('(prefers-redu
   ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 })
   : null;
 document.querySelectorAll('.h-sec').forEach((s) => (io ? io.observe(s) : s.classList.add('in')));
+
+// numbered accordion: one item open, screenshot swaps with it
+const acc = document.getElementById('h-acc'), shotImg = document.querySelector('#h-shot img');
+const ALT = { watch: 'Live flat map of the Baltic with ships and seabed lines', signals: 'Alert stream and a ship dossier with its signals', honesty: "The \u201cwhat you shouldn't conclude\u201d panel next to an alert", incidents: 'Gulf of Finland with incident markers and cable routes', gliders: 'Simulated glider coverage discs over the cable corridors' };
+function openItem(li) {
+  if (!li || li.classList.contains('on')) return;
+  acc.querySelectorAll('li').forEach((x) => { x.classList.toggle('on', x === li); x.querySelector('button').setAttribute('aria-expanded', x === li); });
+  const k = li.dataset.shot; shotImg.classList.add('fade');
+  setTimeout(() => { shotImg.src = asset(`shots/${k}.webp`); shotImg.alt = ALT[k] || ''; shotImg.onload = () => shotImg.classList.remove('fade'); }, 180);
+}
+acc?.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) openItem(li); });
+// preload the other screenshots once the page is idle
+(window.requestIdleCallback || setTimeout)(() => ['signals', 'honesty', 'incidents', 'gliders'].forEach((k) => { const i = new Image(); i.src = asset(`shots/${k}.webp`); }));
+
+// live figures in the stats row
+(async () => {
+  const fmt = (n) => n.toLocaleString('en-GB');
+  const [inc, hist, infra] = await Promise.all([getJSON(asset('data/incidents.json')), getJSON(asset('data/brief.json')), getJSON(asset('data/infra.geojson'))]);
+  const list = Array.isArray(inc) ? inc : inc?.incidents || [];
+  if (list.length) document.getElementById('s-inc').textContent = list.length;
+  if (hist?.stats?.vessels) document.getElementById('s-ships').textContent = fmt(hist.stats.vessels);
+  if (infra?.features) {
+    let km = 0; const R = 6371, rad = Math.PI / 180;
+    for (const f of infra.features) { const g = f.geometry; const parts = g?.type === 'MultiLineString' ? g.coordinates : g?.type === 'LineString' ? [g.coordinates] : [];
+      for (const p of parts) for (let i = 1; i < p.length; i++) { const [a, b] = [p[i - 1], p[i]]; const dLat = (b[1] - a[1]) * rad, dLon = (b[0] - a[0]) * rad;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLon / 2) ** 2; km += 2 * R * Math.asin(Math.sqrt(h)); } }
+    document.getElementById('s-km').textContent = fmt(Math.round(km / 100) * 100);
+  }
+})();
