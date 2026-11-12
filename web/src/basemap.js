@@ -170,6 +170,7 @@ export function addPlaceLabels(scene, declutter) {
   const labels = scene.primitives.add(new Cesium.LabelCollection());
   const dots = scene.primitives.add(new Cesium.PointPrimitiveCollection());
   for (const [text, lon, lat, kind, min, max, pri] of PLACES) {
+    if (kind === 'world' || kind === 'ocean') continue; // flat-map world view only
     const st = STYLE[kind];
     const shown = st.spaced ? sp(text) : text;
     const pos = Cesium.Cartesian3.fromDegrees(lon, lat, 200);

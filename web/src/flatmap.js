@@ -2,7 +2,7 @@
 //  · land, borders, graticule, cables/pipelines: SVG under one zoom transform (non-scaling strokes)
 //  · ships, tracks, gliders, incidents, tasking: one canvas, redrawn per frame in screen space
 //  · labels: screen-space SVG text, constant size at every zoom, greedy collision pass
-import { geoConicConformal, geoPath, geoGraticule10, geoArea } from 'd3-geo';
+import { geoMercator, geoPath, geoGraticule10, geoArea } from 'd3-geo';
 import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
 import { select } from 'd3-selection';
 import 'd3-transition';
@@ -24,6 +24,7 @@ export const FLAT_REGIONS = {
   GOTLAND: [[16.4, 56.5], [20.2, 58.3]],
   BORNHOLM: [[13.2, 54.5], [16.4, 55.9]],
   'DANISH STRAITS': [[9.6, 54.3], [13.4, 57.2]],
+  WORLD: [[-160, -58], [200, 78]],
 };
 const FOCUS = {
   listed: (v) => !!v.watch,
@@ -33,9 +34,11 @@ const FOCUS = {
 };
 // label kinds → style + zoom window (k = zoom scale, 1 = whole Baltic)
 const LABEL = {
-  sea:     { cls: 'fl-sea',     size: 13, minK: 0,   maxK: 3.2, upper: true },
-  gulf:    { cls: 'fl-sea',     size: 12, minK: 0,   maxK: 9,   upper: true },
-  country: { cls: 'fl-country', size: 13.5, minK: 0, maxK: 7,   upper: true },
+  sea:     { cls: 'fl-sea',     size: 13, minK: 0.5, maxK: 3.2, upper: true },
+  gulf:    { cls: 'fl-sea',     size: 12, minK: 0.6, maxK: 9,   upper: true },
+  country: { cls: 'fl-country', size: 13.5, minK: 0.45, maxK: 7, upper: true },
+  world:   { cls: 'fl-country', size: 12, minK: 0,   maxK: 0.45, upper: true },
+  ocean:   { cls: 'fl-sea',     size: 12, minK: 0,   maxK: 0.45, upper: true },
   city:    { cls: 'fl-city',    size: 12, minK: 1.4, maxK: 99,  dot: true },
   port:    { cls: 'fl-port',    size: 11.5, minK: 2.6, maxK: 99, dot: true },
 };
@@ -49,7 +52,7 @@ function shortTitle(t = '') {
 export function createFlatMap(container) {
   container.classList.add('flatmap');
   container.innerHTML = `
-    <svg class="fl-base"><rect class="fl-sea-bg" width="100%" height="100%"/><g class="fl-z"><path class="fl-grat"/><path class="fl-land"/><path class="fl-border"/><g class="fl-infra"></g></g></svg>
+    <svg class="fl-base"><rect class="fl-sea-bg" width="100%" height="100%"/><defs><mask id="fl-out" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-200000" y="-200000" width="400000" height="400000"><rect x="-200000" y="-200000" width="400000" height="400000" fill="#fff"/><path class="fl-boxp" fill="#000"/></mask><clipPath id="fl-in" clipPathUnits="userSpaceOnUse"><path class="fl-boxp"/></clipPath></defs><g class="fl-z"><path class="fl-grat"/><path class="fl-land fl-land-w" mask="url(#fl-out)"/><path class="fl-land" clip-path="url(#fl-in)"/><path class="fl-border"/><g class="fl-infra"></g></g></svg>
     <canvas class="fl-canvas"></canvas>
     <svg class="fl-labels"></svg>`;
   const svg = select(container).select('svg.fl-base');
@@ -60,7 +63,9 @@ export function createFlatMap(container) {
   const labelSvg = select(container).select('svg.fl-labels');
 
   let W = 0, H = 0, DPR = 1;
-  const projection = geoConicConformal().parallels([56, 63]).rotate([-20, 0]);
+  // Web Mercator: conformal (shapes stay right when zoomed in) and works for the whole world when zoomed out.
+  const projection = geoMercator().rotate([-20, 0]);
+  let kMin = 1;
   const path = geoPath(projection);
   let T = zoomIdentity;
   const listeners = { pick: [], hover: [], camera: [] };
@@ -69,7 +74,7 @@ export function createFlatMap(container) {
   let reserved = () => [];
 
   // ---------- data ----------
-  let land = null, borders = null;
+  let land = null, landW = null, landBox = null, borders = null;
   const infra = []; // {kind, name, named, pts:[[x,y]...] base projected}
   const vessels = new Map(); // mmsi -> {v, x, y}
   let incidents = []; // {inc, x, y}
@@ -90,13 +95,17 @@ export function createFlatMap(container) {
     const pad = Math.min(W, H) * 0.04;
     projection.fitExtent([[pad, pad], [W - pad, H - pad]], box);
     reproject();
-    const a = P(4, 50), b = P(37, 69.5), c = P(4, 69.5), d = P(37, 50);
-    zoomer.translateExtent([[Math.min(a[0], c[0]), Math.min(c[1], b[1])], [Math.max(b[0], d[0]), Math.max(a[1], d[1])]]).extent([[0, 0], [W, H]]);
+    // k = 1 frames the Baltic; zooming out goes down to a whole-world view (lat −60…80).
+    const wl = P(-160, 0)[0], wr = P(200, 0)[0], wt = P(20, 80)[1], wb = P(20, -60)[1];
+    kMin = Math.min(1, 0.98 * Math.min(W / (wr - wl), H / (wb - wt)));
+    zoomer.scaleExtent([kMin, 48]).translateExtent([[wl, P(20, 84)[1]], [wr, P(20, -70)[1]]]).extent([[0, 0], [W, H]]);
   }
 
   function reproject() {
     gz.select('.fl-grat').attr('d', path(geoGraticule10()));
-    if (land) gz.select('.fl-land').attr('d', path(land));
+    if (land) gz.select('.fl-land:not(.fl-land-w)').attr('d', path(land));
+    if (landW) gz.select('.fl-land-w').attr('d', path(landW));
+    if (landBox) select(container).selectAll('.fl-boxp').attr('d', path(landBox));
     if (borders) gz.select('.fl-border').attr('d', path(borders));
     for (const l of infra) l.pts = l.coords.map(([x, y]) => P(x, y));
     gInfra.selectAll('path.fl-line').attr('d', (l) => 'M' + l.pts.map((p) => p.join(',')).join('L'));
@@ -111,9 +120,20 @@ export function createFlatMap(container) {
   function setLand(data) {
     if (!data?.region) return;
     // d3-geo wants clockwise exterior rings on the sphere; a ring that "covers" more than a hemisphere is reversed.
-    const polys = data.region.map((poly) => (geoArea({ type: 'Polygon', coordinates: poly }) > 2 * Math.PI ? poly.map((r) => r.slice().reverse()) : poly));
-    land = { type: 'MultiPolygon', coordinates: polys };
-    gz.select('.fl-land').attr('d', path(land));
+    const fix = (polys) => polys.map((poly) => (geoArea({ type: 'Polygon', coordinates: poly }) > 2 * Math.PI ? poly.map((r) => r.slice().reverse()) : poly));
+    land = { type: 'MultiPolygon', coordinates: fix(data.region) };
+    // Detailed (10m) land inside the box, coarse (50m) world land outside it; a shared, slightly inset box hides the seam.
+    if (data.world) landW = { type: 'MultiPolygon', coordinates: fix(data.world) };
+    const [x0, y0, x1, y1] = data.box || [3, 51, 37, 69], e = 0.4; // inset well outside the Baltic view so the box edge never shows
+    // densify so edges follow meridians/parallels (straight in Mercator) instead of great circles
+    const a = x0 + e, b = x1 - e, c = y0 + e, d = y1 - e, ring = [];
+    for (let y = c; y < d; y += 0.25) ring.push([a, y]);
+    for (let x = a; x < b; x += 0.25) ring.push([x, d]);
+    for (let y = d; y > c; y -= 0.25) ring.push([b, y]);
+    for (let x = b; x > a; x -= 0.25) ring.push([x, c]);
+    ring.push([a, c]);
+    landBox = { type: 'Polygon', coordinates: [geoArea({ type: 'Polygon', coordinates: [ring] }) > 2 * Math.PI ? ring.slice().reverse() : ring] };
+    reproject();
   }
   function setCoast(data) {
     if (!data?.borders) return;
@@ -159,7 +179,7 @@ export function createFlatMap(container) {
     incidents = (list || []).filter((i) => typeof i.lat === 'number').map((inc) => { const [x, y] = P(inc.lon, inc.lat); return { inc, x, y }; });
     incLabels = incidents.map(({ inc }, idx) => ({
       text: `${(inc.date || '').slice(0, 7)} · ${inc.vessel?.name ? inc.vessel.name.split(' (')[0] : shortTitle(inc.title)}`,
-      lon: inc.lon, lat: inc.lat, cls: 'fl-inc', size: 11, minK: 0, maxK: 99, pri: 95, dx: idx % 2 ? -12 : 12, anchor: idx % 2 ? 'end' : 'start', layer: 'incidents',
+      lon: inc.lon, lat: inc.lat, cls: 'fl-inc', size: 11, minK: 0.6, maxK: 99, pri: 95, dx: idx % 2 ? -12 : 12, anchor: idx % 2 ? 'end' : 'start', layer: 'incidents',
     }));
     for (const l of incLabels) [l.x, l.y] = P(l.lon, l.lat);
     redrawLabels(); draw();
@@ -412,7 +432,7 @@ export function createFlatMap(container) {
     const pts = [box[0], [box[1][0], box[0][1]], box[1], [box[0][0], box[1][1]]].map(([x, y]) => P(x, y));
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const k = Math.max(1, Math.min(maxK, 0.92 / Math.max((x1 - x0) / W, (y1 - y0) / H)));
+    const k = Math.max(kMin, Math.min(maxK, 0.92 / Math.max((x1 - x0) / W, (y1 - y0) / H)));
     return zoomIdentity.translate(W / 2 - (k * (x0 + x1)) / 2, H / 2 - (k * (y0 + y1)) / 2).scale(k);
   }
   function go(t, duration) {

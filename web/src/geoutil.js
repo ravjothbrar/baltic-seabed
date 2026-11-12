@@ -6,6 +6,7 @@ export const REGIONS = {
   GOTLAND: { lon: 18.6, lat: 57.3, range: 380000, pitch: -50 },
   BORNHOLM: { lon: 14.9, lat: 55.2, range: 240000, pitch: -50 },
   'DANISH STRAITS': { lon: 11.6, lat: 55.7, range: 330000, pitch: -50 },
+  WORLD: { lon: 20, lat: 30, range: 18000000, pitch: -90 },
 };
 
 export function kmBetween(lon1, lat1, lon2, lat2) {
