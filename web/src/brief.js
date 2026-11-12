@@ -41,6 +41,7 @@ export function renderBrief(b, { compact = false } = {}) {
       <div class="bf-body">
         <div class="bf-t"><span class="lvl" data-level="${esc(t.level)}">${esc(t.level)}</span> <b>${esc(t.name || 'MMSI ' + t.mmsi)}</b> <span class="bf-dim">${esc([t.typeLabel, t.flag].filter(Boolean).join(' · '))}${t.asset ? ' · near ' + esc(t.asset) : ''}</span></div>
         <div class="bf-sigs">${(t.signals || []).map((s) => `<span class="bf-sig ${s.explained ? 'x' : ''}" title="${esc(s.evidence || '')}">${esc(s.label || s.id)}${s.explained ? ' · explained' : ''}</span>`).join('')}</div>
+        <ul class="bf-ev">${(t.signals || []).filter((s) => s.evidence).map((s) => `<li><b>${esc(s.label || s.id)}:</b> ${esc(s.evidence)}${s.explained && s.explainedBy ? ` <i>(explained: ${esc(s.explainedBy)})</i>` : ''}</li>`).join('')}</ul>
         ${t.caveat ? `<div class="bf-cav">Why it may be nothing: ${esc(t.caveat)}</div>` : ''}
       </div>
     </li>`).join('') : '<li class="bf-item bf-dim">No alerts in the window. That is the normal state of the Baltic.</li>';

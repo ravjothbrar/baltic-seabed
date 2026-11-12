@@ -11,8 +11,9 @@ const read = async (p) => { try { return JSON.parse(await readFile(p, 'utf8')); 
 
 let prev = null;
 if (process.env.PREV_URL) { try { const r = await fetch(process.env.PREV_URL, { cache: 'no-store' }); if (r.ok) prev = await r.json(); } catch {} }
-if (prev && Date.now() - Date.parse(prev.generated) < 23 * 3600e3 && !process.env.FORCE) {
-  await writeFile(OUT, JSON.stringify(prev)); console.log(`brief: previous is < 24 h old (${prev.generated}), reused`); process.exit(0);
+const utcDay = (d) => new Date(d).toISOString().slice(0, 10);
+if (prev && utcDay(prev.generated) === utcDay(Date.now()) && !process.env.FORCE) {
+  await writeFile(OUT, JSON.stringify(prev)); console.log(`brief: today's brief already exists (${prev.generated}), reused`); process.exit(0);
 }
 
 const history = await read(HIST);
@@ -27,6 +28,11 @@ for (const [mmsi, rows] of Object.entries(history.tracks)) engine.seedTrack(+mms
 await engine.refreshWeather().catch(() => {});
 engine.sweep();
 const snap = engine.snapshot();
+// "Vessels seen" = distinct ships with at least one fix inside the window (not just those reporting in the last 30 min).
+const seen = new Set(), seenListed = new Set();
+for (const [mmsi, rows] of Object.entries(history.tracks)) {
+  if (rows.some((r) => r[2] * 1000 > cutoff)) { seen.add(+mmsi); if (engine.vessels.get(+mmsi)?.watch) seenListed.add(+mmsi); }
+}
 
 const rank = { HIGH: 3, ELEVATED: 2, WATCH: 1 };
 const top = [...snap.alerts]
@@ -40,7 +46,7 @@ const top = [...snap.alerts]
 
 const sar = SAR ? await read(SAR) : null;
 const today = new Date().toISOString().slice(0, 10);
-const entry = { date: today, vessels: snap.stats.vessels, listed: snap.stats.watchlist, alerts: snap.stats.alerts.WATCH + snap.stats.alerts.ELEVATED + snap.stats.alerts.HIGH };
+const entry = { date: today, vessels: seen.size, listed: seenListed.size, alerts: snap.stats.alerts.WATCH + snap.stats.alerts.ELEVATED + snap.stats.alerts.HIGH };
 const trend = [...(prev?.history || []).filter((h) => h.date !== today), entry].slice(-14);
 
 const notes = [
@@ -51,10 +57,10 @@ if (!top.length) notes.unshift('No alerts in the window.');
 
 const brief = {
   generated: new Date().toISOString(), windowHours: TRACK_MS / 3600e3,
-  stats: { vessels: snap.stats.vessels, listed: snap.stats.watchlist, alerts: snap.stats.alerts, signals: snap.stats.signals, windKn: snap.stats.windKn },
+  stats: { vessels: seen.size, listed: seenListed.size, reportingNow: snap.stats.vessels, alerts: snap.stats.alerts, signals: snap.stats.signals, windKn: snap.stats.windKn },
   top,
   sar: sar ? { detections: sar.detections, unmatched: sar.unmatched, windowDays: sar.windowDays, dateRange: sar.dateRange, generated: sar.generated } : null,
   notes, history: trend,
 };
 await writeFile(OUT, JSON.stringify(brief));
-console.log(`brief: ${brief.stats.vessels} vessels, ${top.length} top items, trend ${trend.length} days`);
+console.log(`brief: ${brief.stats.vessels} vessels seen, ${top.length} top items, trend ${trend.length} days`);

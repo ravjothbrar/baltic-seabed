@@ -12,7 +12,7 @@ const EMOD = (layer) =>
 // Assets named in public incident reporting get highlighted.
 const NAMED = [
   /c-lion/i, /bcs east-west/i, /sweden-latvia/i, /latvia-sweden/i, /finland.?estonia/i, /sweden-estonia/i,
-  /baltica/i, /kingisepp/i, /nordbalt/i, /balticconnector/i, /nord ?stream/i, /baltic pipe/i, /estlink/i, /eastern light/i,
+  /baltica/i, /kingisepp/i, /nordbalt/i, /swepol/i, /fenno.?skan/i, /kontek/i, /baltic cable/i, /balticconnector/i, /nord ?stream/i, /baltic pipe/i, /estlink/i, /eastern light/i,
 ];
 const isNamed = (n) => !!n && NAMED.some((r) => r.test(n));
 

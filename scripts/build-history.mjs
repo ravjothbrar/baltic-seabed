@@ -31,7 +31,9 @@ function add(mmsi, row) {
   if (p) {
     const dt = row[2] - p[2];
     const movedM = Math.hypot((row[0] - p[0]) * 111320 * Math.cos((row[1] * Math.PI) / 180), (row[1] - p[1]) * 110540);
-    const dSog = Math.abs((row[3] ?? 0) - (p[3] ?? 0));
+    // A change between "speed unavailable" (null) and a number is meaningful (it ends a LOITER run), so keep it.
+    if ((row[3] == null) !== (p[3] == null)) { t.push(row); return; }
+    const dSog = row[3] == null ? 0 : Math.abs(row[3] - p[3]);
     const stationary = movedM < 50 && dSog < 0.5;
     if (stationary ? dt < 1200 : dt < 300 && !(dt >= 60 && dSog >= 1.5)) return;
   }
@@ -39,7 +41,7 @@ function add(mmsi, row) {
 }
 
 // aisstream.io (whole Baltic): listen for the whole sampling window if a key is set. Runs only in CI, never in a browser.
-let ais = null, aisCount = 0;
+let ais = null, aisCount = 0, aisLast = 0;
 if (process.env.AISSTREAM_API_KEY && typeof WebSocket !== 'undefined') {
   try {
     ais = new WebSocket('wss://stream.aisstream.io/v0/stream');
@@ -52,7 +54,7 @@ if (process.env.AISSTREAM_API_KEY && typeof WebSocket !== 'undefined') {
           if (!inBaltic([lon, lat])) return;
           const ts = Date.parse(String(md.time_utc || '').replace(/ \+0000 UTC$/, 'Z').replace(' ', 'T')) || Date.now();
           add(md.MMSI, [+lon.toFixed(4), +lat.toFixed(4), Math.round(ts / 1000), p.Sog >= 102.3 ? null : p.Sog, p.Cog >= 360 ? null : Math.round(p.Cog), p.NavigationalStatus]);
-          aisCount++;
+          aisCount++; aisLast = Math.max(aisLast, ts);
         } else if (m.MessageType === 'ShipStaticData') {
           const st = m.Message.ShipStaticData;
           meta[md.MMSI] = [String(st.Name || '').replace(/@+$/, '').trim() || null, st.ImoNumber || null, st.Type ?? null, String(st.Destination || '').replace(/@+$/, '').trim() || null];
@@ -94,7 +96,7 @@ for (const [mmsi, t] of Object.entries(tracks)) {
 }
 for (const mmsi of Object.keys(meta)) if (!tracks[mmsi]) delete meta[mmsi];
 
-const out = { generated: new Date().toISOString(), source: ais ? 'Fintraffic Digitraffic AIS (CC BY 4.0) + aisstream.io' : 'Fintraffic Digitraffic AIS (CC BY 4.0)', aisstream: !!ais, format: 'tracks[mmsi] = [[lon,lat,tsSec,sog,cog,nav]], meta[mmsi] = [name,imo,shipType,destination]', tracks, meta };
+const out = { generated: new Date().toISOString(), source: aisCount ? 'Fintraffic Digitraffic AIS (CC BY 4.0) + aisstream.io' : 'Fintraffic Digitraffic AIS (CC BY 4.0)', aisstream: aisCount > 0, aisstreamPositions: aisCount, aisstreamLast: aisLast ? new Date(aisLast).toISOString() : null, format: 'tracks[mmsi] = [[lon,lat,tsSec,sog,cog,nav]], meta[mmsi] = [name,imo,shipType,destination]', tracks, meta };
 const json = JSON.stringify(out);
 await writeFile(OUT, json);
 console.log(`history: ${Object.keys(tracks).length} vessels, ${Object.values(tracks).reduce((s, t) => s + t.length, 0)} points, ${(json.length / 1e6).toFixed(2)} MB`);

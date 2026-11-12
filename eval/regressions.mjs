@@ -69,4 +69,9 @@ ok('restored metadata does not block archived track replay', () => {
   assert.equal(e.tracks.get(230000015)?.length, 2);
 });
 
+ok('HVDC links from OpenStreetMap (e.g. SwePol) count as named critical assets', () => {
+  const pw = infra.features.filter((f) => f.properties.kind === 'power' && /swepol|nordbalt/i.test(f.properties.name));
+  assert.ok(pw.length && pw.every((f) => f.properties.named), pw.map((f) => f.properties.name + ':' + f.properties.named).join());
+});
+
 console.log(`\n${n} regression checks passed`);
