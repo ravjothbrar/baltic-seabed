@@ -1117,13 +1117,14 @@ function exitHero() {
   if (!document.body.classList.contains('hero-on')) return;
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
   document.body.classList.remove('hero-on');
-  document.body.classList.add('hero-out');
+  document.body.classList.add('hero-out', 'hero-swoop'); // flat map stays hidden under the swooping globe
   flat.resize(); buildRing(); // lay the dashboard out first so the swoop targets the final frame
   flat.flyRegion('BALTIC', 0);
   const hero = $('#hero');
   const finish = () => {
     introDone = true;
-    hero?.classList.add('done'); // canvas fades out over the flat map
+    hero?.classList.add('done'); // canvas fades out while the flat map fades in underneath
+    document.body.classList.remove('hero-swoop');
     setTimeout(() => { document.body.classList.remove('hero-out'); heroGlobe?.destroy(); heroGlobe = null; hero?.remove(); }, 550);
     maybeOfferTour();
   };
