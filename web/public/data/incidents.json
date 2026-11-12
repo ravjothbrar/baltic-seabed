@@ -1,0 +1,306 @@
+{
+  "note": "Compiled from cross-checked search results; source pages not opened directly. Verify before citing.",
+  "incidents": [
+    {
+      "id": "nord-stream-2022",
+      "date": "2022-09-26",
+      "title": "Nord Stream 1 & 2 pipeline explosions",
+      "assets": [
+        "Nord Stream 1",
+        "Nord Stream 2"
+      ],
+      "vessel": null,
+      "lat": 55.5,
+      "lon": 15.6,
+      "approx": true,
+      "summary": "Explosions damaged the Nord Stream gas pipelines on the Baltic seabed near the Danish island of Bornholm.",
+      "outcome": "Denmark found deliberate sabotage but closed its case and Sweden closed its probe citing lack of jurisdiction; German prosecutors charged one Ukrainian suspect, and a second, arrested in Croatia in Aug 2026, was approved for extradition to Germany in Sep 2026 (reportedly under appeal); Ukraine denies involvement.",
+      "outcomeStatus": "open",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "Washington Post",
+          "url": "https://www.washingtonpost.com/world/2025/08/21/nord-stream-arrest-suspect-ukrainian-pipeline/"
+        },
+        {
+          "label": "NBC News",
+          "url": "https://www.nbcnews.com/world/ukraine/nord-stream-pipeline-attacks-arrest-ukrainian-italy-germany-rcna226240"
+        },
+        {
+          "label": "Al Jazeera",
+          "url": "https://www.aljazeera.com/news/2026/8/19/second-ukrainian-national-arrested-over-2022-nord-stream-pipeline-blast"
+        },
+        {
+          "label": "CBC",
+          "url": "https://www.cbc.ca/news/world/nord-stream-pipeline-damage-arrest-9.7312068"
+        },
+        {
+          "label": "Al Jazeera",
+          "url": "https://www.aljazeera.com/news/2026/9/24/croatian-court-approves-extradition-in-nord-stream-bombing-case"
+        },
+        {
+          "label": "US News (Reuters)",
+          "url": "https://www.usnews.com/news/world/articles/2026-09-24/croatian-court-allows-extradition-of-nord-stream-blast-suspect-to-germany-media-reports"
+        }
+      ]
+    },
+    {
+      "id": "newnew-polar-bear-2023",
+      "date": "2023-10-08",
+      "title": "Balticconnector gas pipeline + telecom cables",
+      "assets": [
+        "Balticconnector",
+        "Finland–Estonia telecom cable",
+        "Sweden–Estonia telecom cable"
+      ],
+      "vessel": {
+        "name": "Newnew Polar Bear",
+        "flag": "Hong Kong"
+      },
+      "lat": 59.7,
+      "lon": 24.1,
+      "approx": true,
+      "summary": "The Balticconnector gas pipeline between Inkoo and Paldiski was damaged in the Finnish economic zone, along with telecom cables; Finnish investigators found a drag trail and an anchor at the site and said the route of the Hong Kong-flagged Newnew Polar Bear matched the time and place of the damage.",
+      "outcome": "Finnish investigators said the vessel's anchor caused the damage; China acknowledged in Aug 2024 that the ship damaged the pipeline but called it a storm-caused accident; the captain pleaded not guilty to criminal damage in a Hong Kong court in Feb 2026, and no verdict had been reported.",
+      "outcomeStatus": "open",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "ERR News",
+          "url": "https://news.err.ee/1609161313/anchor-found-next-to-balticconnector-belongs-to-newnew-polar-bear"
+        },
+        {
+          "label": "Euronews",
+          "url": "https://www.euronews.com/2023/10/25/finland-blames-chinese-ship-for-baltic-sea-gas-pipeline-damage"
+        },
+        {
+          "label": "RFE/RL",
+          "url": "https://www.rferl.org/amp/china-baltic-pipeline-damaged-russia-newnew-polar-bear/32667867.html"
+        },
+        {
+          "label": "Lowy Institute",
+          "url": "https://www.lowyinstitute.org/the-interpreter/beijing-s-baltic-confession-exposes-undersea-vulnerability"
+        },
+        {
+          "label": "SCMP",
+          "url": "https://www.scmp.com/news/article/3343169/captain-pleads-not-guilty-damaging-baltic-sea-gas-pipeline-hong-kong-court"
+        },
+        {
+          "label": "AP (via Yahoo)",
+          "url": "https://www.yahoo.com/news/articles/chinese-sea-captain-pleads-not-053920224.html"
+        }
+      ]
+    },
+    {
+      "id": "yi-peng-3-2024",
+      "date": "2024-11-17",
+      "title": "BCS East-West Interlink + C-Lion1",
+      "assets": [
+        "BCS East-West Interlink",
+        "C-Lion1"
+      ],
+      "vessel": {
+        "name": "Yi Peng 3",
+        "flag": "China"
+      },
+      "lat": 57.0,
+      "lon": 18.5,
+      "approx": true,
+      "summary": "Two data cables, Lithuania–Sweden and Finland–Germany, were damaged in Swedish waters in an area where the China-flagged bulk carrier Yi Peng 3, sailing from Ust-Luga, had been; investigators reportedly suspected it dragged its anchor along the seabed.",
+      "outcome": "Sweden, Finland and Lithuania opened investigations, but the ship left on 21 Dec 2024 after China initially refused investigators permission to board, and the damage has not been conclusively attributed to any party.",
+      "outcomeStatus": "inconclusive",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "Wilson Center",
+          "url": "https://www.wilsoncenter.org/article/mapping-undersea-infrastructure-attacks-baltic-sea"
+        },
+        {
+          "label": "gCaptain",
+          "url": "https://gcaptain.com/russia-now-primary-suspect-in-yi-peng-3-baltic-sea-cable-incident/"
+        },
+        {
+          "label": "DCD",
+          "url": "https://www.datacenterdynamics.com/en/news/investigators-suspect-baltic-sea-cable-cuts-were-deliberate-chinese-ship-to-blame/"
+        },
+        {
+          "label": "Japan Times",
+          "url": "https://japantimes.co.jp/news/2024/11/21/world/crime-legal/china-ship-baltic-sea-cables"
+        },
+        {
+          "label": "Atlantic Council",
+          "url": "https://www.atlanticcouncil.org/blogs/new-atlanticist/suspected-sabotage-by-a-chinese-vessel-in-the-baltic-sea-speaks-to-a-wider-threat/"
+        }
+      ]
+    },
+    {
+      "id": "eagle-s-2024",
+      "date": "2024-12-25",
+      "title": "Estlink 2 + 4 telecom cables",
+      "assets": [
+        "Estlink 2",
+        "Finland–Estonia telecom cables (Elisa)",
+        "Finland–Germany telecom cable (Cinia)"
+      ],
+      "vessel": {
+        "name": "Eagle S",
+        "imo": "9329760",
+        "flag": "Cook Islands"
+      },
+      "lat": 59.9,
+      "lon": 24.8,
+      "approx": true,
+      "summary": "The Estlink 2 power cable and four telecom cables across the Gulf of Finland were damaged; Finnish investigators said the Cook Islands-flagged tanker Eagle S, linked to Russia's shadow fleet, had dragged its anchor near the cables.",
+      "outcome": "The captain and two officers were charged in Aug 2025; the Helsinki District Court dismissed the case for lack of jurisdiction in Oct 2025, but on 27 Aug 2026 the Helsinki Court of Appeal ruled Finland has jurisdiction and sent the case back for trial on the merits, without ruling on guilt, in a decision open to Supreme Court appeal.",
+      "outcomeStatus": "open",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "Yle",
+          "url": "https://yle.fi/a/74-20243196"
+        },
+        {
+          "label": "The Record",
+          "url": "https://therecord.media/finland-appeals-court-revives-case-against-eagle-s"
+        },
+        {
+          "label": "Maritime Executive",
+          "url": "https://maritime-executive.com/article/tanker-anchor-dragging-case-reopened-by-helsinki-appeals-court"
+        },
+        {
+          "label": "EJIL:Talk!",
+          "url": "https://www.ejiltalk.org/has-the-eagle-landed-criminal-jurisdiction-for-submarine-cable-damage-in-the-eez-at-the-helsinki-court-of-appeal/"
+        },
+        {
+          "label": "Lloyd's List",
+          "url": "https://www.lloydslist.com/LL1151950/Finland-police-seize-Russian-linked-dark-fleet-tanker-Eagle-S-in-cable-cutting-investigation"
+        },
+        {
+          "label": "NPR",
+          "url": "https://www.npr.org/2024/12/27/g-s1-40114/finland-russia-vessel-undersea-cables"
+        }
+      ]
+    },
+    {
+      "id": "vezhen-2025",
+      "date": "2025-01-26",
+      "title": "Ventspils–Gotland fibre cable",
+      "assets": [
+        "Latvia–Sweden (Ventspils–Gotland) fibre cable"
+      ],
+      "vessel": {
+        "name": "Vezhen",
+        "flag": "Malta"
+      },
+      "lat": 57.3,
+      "lon": 19.6,
+      "approx": true,
+      "summary": "Damage to the fibre cable between Ventspils, Latvia, and Gotland, Sweden, was detected on 26 Jan 2025, and Swedish authorities seized the Malta-flagged bulk carrier Vezhen the same day.",
+      "outcome": "Swedish prosecutors said on 3 Feb 2025 the ship did cause the break but 'with certainty' it was not sabotage, citing weather, faulty anchor equipment and poor seamanship; the ship was released and Sweden handed the case to Latvian investigators.",
+      "outcomeStatus": "accident",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "Euronews",
+          "url": "https://www.euronews.com/2025/01/27/sweden-seizes-ship-suspected-of-cable-damage-in-baltic-sea"
+        },
+        {
+          "label": "gCaptain",
+          "url": "https://gcaptain.com/sweden-says-ship-broke-baltic-sea-cable-by-accident"
+        },
+        {
+          "label": "Baird Maritime",
+          "url": "https://www.bairdmaritime.com/security/incidents/accidents/sweden-vezhen-broke-baltic-sea-cable-by-accident"
+        },
+        {
+          "label": "Euronews",
+          "url": "https://www.euronews.com/2025/02/03/sweden-releases-bulgarian-ship-after-ruling-out-sabotage-in-baltic-sea-cable-rupture"
+        },
+        {
+          "label": "Maritime Executive",
+          "url": "https://maritime-executive.com/article/swedish-prosecutors-confirm-january-cable-break-was-accident-by-bulker"
+        }
+      ]
+    },
+    {
+      "id": "fitburg-2025",
+      "date": "2025-12-31",
+      "title": "Elisa + Arelion Helsinki–Tallinn cables",
+      "assets": [
+        "Elisa Helsinki–Tallinn telecom cable",
+        "Arelion Finland–Estonia telecom cable"
+      ],
+      "vessel": {
+        "name": "Fitburg",
+        "flag": "Saint Vincent and the Grenadines"
+      },
+      "lat": 59.8,
+      "lon": 24.9,
+      "approx": true,
+      "summary": "Two telecom cables across the Gulf of Finland were damaged, mainly in Estonia's economic zone, and Finnish police seized the cargo ship Fitburg, sailing from St Petersburg, on suspicion that it damaged them by dragging its anchor.",
+      "outcome": "Finland's NBI concluded its investigation with four suspects and passed the case to prosecutors, who charged two crew members in June 2026; on 5 Nov 2026 the Helsinki District Court found Finland had jurisdiction and convicted them over the cable damage, a verdict that is not final, and the captain's lawyer said he would appeal.",
+      "outcomeStatus": "open",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "Finnish Police",
+          "url": "https://poliisi.fi/en/-/investigation-into-fitburg-cable-damage-concluded"
+        },
+        {
+          "label": "Al Jazeera",
+          "url": "https://www.aljazeera.com/news/2025/12/31/police-investigating-damage-to-undersea-telecom-cable-in-gulf-of-finland"
+        },
+        {
+          "label": "NBC News",
+          "url": "https://www.nbcnews.com/world/europe/finland-seizes-ship-sailing-russia-suspected-cable-sabotage-rcna251698"
+        },
+        {
+          "label": "Yle",
+          "url": "https://yle.fi/a/74-20255306"
+        },
+        {
+          "label": "Irish Times",
+          "url": "https://www.irishtimes.com/world/europe/2026/11/05/finland-court-convicts-russian-captain-azerbaijani-crew-member-over-baltic-cable-damage/"
+        },
+        {
+          "label": "The Moscow Times",
+          "url": "https://www.themoscowtimes.com/2026/11/05/finland-jails-russian-captain-and-azerbaijani-crew-member-over-baltic-sea-cable-damage-a94185"
+        }
+      ]
+    },
+    {
+      "id": "liepaja-2026",
+      "date": "2026-01-02",
+      "title": "Šventoji–Liepāja telecom cable",
+      "assets": [
+        "Arelion Šventoji–Liepāja telecom cable"
+      ],
+      "vessel": null,
+      "lat": 56.3,
+      "lon": 20.9,
+      "approx": true,
+      "summary": "A telecom cable between Šventoji, Lithuania, and Liepāja, Latvia, was damaged in Latvian territorial waters, and Latvian police boarded a vessel in Liepāja port.",
+      "outcome": "Latvian police said on 5 Jan 2026 the information gathered did not link the inspected vessel to the damage and released it; the criminal case remains open.",
+      "outcomeStatus": "open",
+      "verification": "search-summary",
+      "sources": [
+        {
+          "label": "gCaptain",
+          "url": "https://gcaptain.com/latvia-police-board-vessel-after-baltic-sea-telecom-cable-breach"
+        },
+        {
+          "label": "Bloomberg",
+          "url": "https://www.bloomberg.com/news/articles/2026-01-04/latvia-probes-ship-after-communications-cable-cut-off-coast"
+        },
+        {
+          "label": "The Baltic Times",
+          "url": "https://www.baltictimes.com/police_information_does_not_link_ship_in_liepaja_port_to_damage_of_fiber_optic_cable/"
+        },
+        {
+          "label": "ThePrint (Reuters)",
+          "url": "https://theprint.in/world/latvia-finds-no-link-between-ship-and-baltic-cable-breach-probe-goes-on/2819399"
+        }
+      ]
+    }
+  ]
+}
