@@ -68,6 +68,7 @@ document.querySelector('#app').innerHTML = `
   <header class="topbar">
     <div class="brand">${BRAND_SVG}<div class="brand-name">BALTIC <b>SEABED</b> WATCH</div></div>
     <div class="strap"><span class="dot"></span>UNCLASSIFIED // OPEN SOURCE</div>
+    <a class="byline" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
     <div class="top-spacer"></div>
     <span class="chip hide-m">SWEEP<b id="c-sweep">—</b></span>
     <span class="chip hide-m"><b id="c-utc" style="margin:0">—</b></span>
@@ -109,7 +110,8 @@ document.querySelector('#app').innerHTML = `
       <div class="ring" id="ring"></div>
       <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
       <div class="hud tl">
-        <div>BSW // OBSERVER-1</div>
+        <div class="hud-obs">BSW // OBSERVER-1</div>
+        <a class="byline byline-sheet" href="https://ravjothbrar.com" target="_blank" rel="noopener"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
         <div class="row hl" id="h-state">STATE ▸ ACQUIRING</div>
         <div class="row" style="margin-top:14px">OBSERVATIONS IN VIEW</div>
         <div class="big" id="h-obs">0</div>
@@ -166,7 +168,7 @@ document.querySelector('#app').innerHTML = `
   </section>
 
   <footer class="foot">
-    <span>Independent project by <b>Ravjoth Brar</b> · public data · not affiliated with Helsing</span>
+    <span>Independent project by <a class="foot-link" href="https://ravjothbrar.com" target="_blank" rel="noopener">Ravjoth Brar</a> · public data · not affiliated with Helsing</span>
     <span class="sp"></span>
     <span>AIS IS SELF-REPORTED · NOTHING HERE IS EVIDENCE OF INTENT</span>
     <span>NATURAL EARTH · EMODNET · TELEGEOGRAPHY · OPENSANCTIONS · DIGITRAFFIC</span>
@@ -186,7 +188,7 @@ document.body.insertAdjacentHTML('beforeend', `
       <div class="hero-k"><span class="hero-dot"></span>LIVE · <span id="hero-n">—</span> SHIPS · <span id="hero-km">—</span> KM OF MAPPED SEABED LINES</div>
       <h1><span>The seabed is the</span><span>new front line.</span></h1>
       <p>Ships, cables and pipelines across the Baltic, watched live from public data. It flags the patterns, says how weak they are, and shows what persistent underwater sensing would add.</p>
-      <button class="hero-go" id="hero-go">ENTER <span>▸</span></button>
+      <div class="hero-actions"><button class="hero-go" id="hero-go">ENTER <span>▸</span></button><a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a></div>
     </div>
     <div class="hero-foot">
       <span>01 · LIVE AIS</span><span>02 · CABLES &amp; PIPELINES</span><span>03 · SANCTIONS LISTS</span><span>04 · INCIDENT LOG</span><span>05 · GLIDER COVERAGE (SIM)</span>
@@ -640,7 +642,10 @@ function renderTop() {
   $('#c-feeds').textContent = feeds.length ? `${okFeeds}/${feeds.length}` : '—';
   $('#c-sweep').textContent = s?.sweepMs != null ? `${(s.sweepMs / 1000).toFixed(1)}s` : '—';
   $('#c-msgs').textContent = s?.msgsPerMin != null ? fmt(Math.round(s.msgsPerMin)) : '—';
-  const stale = !state.sseOk && Date.now() - state.lastSnapshot > 30000;
+  // STALE when the transport is down OR no AIS feed is fresh (the transport being open says nothing about the ships).
+  const aisFresh = ['digitraffic', 'aisstream'].some((k) => f[k]?.ok && f[k]?.last && Date.now() - f[k].last < 120e3);
+  const transportDown = !state.sseOk && Date.now() - state.lastSnapshot > 30000;
+  const stale = transportDown || (!!state.feeds && !aisFresh);
   const lvl = stale ? 'STALE' : s?.level || 'NOMINAL';
   const pill = $('#c-level');
   pill.dataset.level = lvl;
@@ -1018,7 +1023,7 @@ if (params.has('nohero')) {
   document.body.classList.add('hero-on');
   globe.heroStart();
   setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
-  $('#hero').addEventListener('click', exitHero);
+  $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
   if (!HOLD) setTimeout(exitHero, 5200);
 }

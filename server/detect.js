@@ -4,7 +4,7 @@ import { distNm } from './geo.js';
 import { WORK_TYPES, isTankerOrCargo, FOC_SHADOW, RU_GOF_DEST } from './ais-meta.js';
 
 export const T = {
-  LOITER_SOG: 3, LOITER_MIN: 20,
+  LOITER_SOG: 3, LOITER_MIN: 20, DRAG_MIN: 10,
   DRAG_SOG_MIN: 1, DRAG_SOG_MAX: 7, DRAG_DROP: 0.6, DRAG_MEDIAN_MIN: 8, DRAG_KM: 2,
   CROSS_NM: 0.3, CROSS_DROP: 0.5, CROSS_MEDIAN_MIN: 6,
   DARK_MIN: 45, DARK_MAX_H: 6, DARK_NEAR_NM: 10, DARK_PEERS: 5, DARK_PEER_NM: 10,
@@ -41,7 +41,8 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
 
   // ── LOITER: contiguous recent stretch in a corridor at < 3 kn
   let i = track.length - 1;
-  while (i >= 0 && track[i][3] < T.LOITER_SOG && corridors.corridor(track[i][0], track[i][1])) i--;
+  // null speed = AIS 'not available': unknown, never counted as slow
+  while (i >= 0 && track[i][3] != null && track[i][3] < T.LOITER_SOG && corridors.corridor(track[i][0], track[i][1])) i--;
   const loiterMin = i < track.length - 1 ? (last[2] - track[i + 1][2]) / 60e3 : 0;
   if (corr && loiterMin >= T.LOITER_MIN && !inPort && last[5] !== 5) { // nav 5 = moored at a berth
     const anchored = last[5] === 1;
@@ -50,19 +51,17 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
       work ? `vessel type ${v.typeLabel} routinely works slowly` : v.type >= 60 && v.type <= 69 ? 'passenger ferries wait at terminals and quays' : waiting ? `declared destination "${v.dest}" says it is waiting` : gale ? `weather: ${fmtWx(weather)}` : null));
   }
 
-  // ── DRAG: in-corridor stretch, under way, speed well below own median, ≥ 2 km
+  // ── DRAG: a run of consecutive slow, under-way fixes in a corridor, well below own median, ≥ 2 km and ≥ 10 min.
+  // Distance only counts between two qualifying fixes, so the fast approach to the first slow fix is excluded.
   if (med && med >= T.DRAG_MEDIAN_MIN) {
+    const ok = (p) => p[3] != null && p[3] >= T.DRAG_SOG_MIN && p[3] <= T.DRAG_SOG_MAX && p[3] <= med * T.DRAG_DROP && (p[5] === 0 || p[5] == null || p[5] === 15) && corridors.corridor(p[0], p[1]);
     let j = track.length - 1, km = 0;
-    while (j > 0) {
-      const p = track[j];
-      const ok = p[3] >= T.DRAG_SOG_MIN && p[3] <= T.DRAG_SOG_MAX && p[3] <= med * T.DRAG_DROP && (p[5] === 0 || p[5] == null || p[5] === 15) && corridors.corridor(p[0], p[1]);
-      if (!ok) break;
-      km += distNm(track[j - 1][0], track[j - 1][1], p[0], p[1]) * 1.852; j--;
-    }
-    if (km >= T.DRAG_KM && corr) {
-      const avg = track.slice(j + 1).reduce((s, p) => s + p[3], 0) / Math.max(1, track.length - 1 - j);
+    if (ok(track[j])) while (j > 0 && ok(track[j - 1])) { km += distNm(track[j - 1][0], track[j - 1][1], track[j][0], track[j][1]) * 1.852; j--; }
+    const runMin = (last[2] - track[j][2]) / 60e3;
+    if (ok(last) && km >= T.DRAG_KM && runMin >= T.DRAG_MIN && corr) {
+      const run = track.slice(j); const avg = run.reduce((s, p) => s + p[3], 0) / run.length;
       signals.push(sig('DRAG', 'moderate',
-        `${km.toFixed(1)} km along ${corr.name} at ~${avg.toFixed(1)} kn vs its usual ${med.toFixed(1)} kn, nav status still "under way"`,
+        `${km.toFixed(1)} km along ${corr.name} over ${Math.round(runMin)} min at ~${avg.toFixed(1)} kn vs its usual ${med.toFixed(1)} kn, nav status still "under way"`,
         work ? `vessel type ${v.typeLabel}` : gale ? `weather: ${fmtWx(weather)}` : null));
     }
   }
@@ -72,7 +71,7 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
     const recent = track.filter((p) => p[2] >= now - 30 * 60e3);
     for (const p of recent) {
       const n = corridors.nearest(p[0], p[1]);
-      if (n && n.named && n.nm <= T.CROSS_NM && p[3] < med * T.CROSS_DROP && p[3] > 0.3) {
+      if (n && n.named && n.nm <= T.CROSS_NM && p[3] != null && p[3] < med * T.CROSS_DROP && p[3] > 0.3) {
         signals.push(sig('CROSS_SLOW', 'weak', `crossed ${n.name} at ${p[3].toFixed(1)} kn (usual ${med.toFixed(1)} kn)`,
           work ? `vessel type ${v.typeLabel}` : gale ? `weather: ${fmtWx(weather)}` : null));
         break;
@@ -82,8 +81,8 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
 
   // ── DARK: silent ≥ 30 min near infrastructure while neighbours kept reporting
   const silentMin = (now - last[2]) / 60e3;
-  if (silentMin >= T.DARK_MIN && silentMin <= T.DARK_MAX_H * 60 && last[3] > 2) {
-    const near = corridors.nearest(lon, lat);
+  if (silentMin >= T.DARK_MIN && silentMin <= T.DARK_MAX_H * 60 && last[3] != null && last[3] > 2) {
+    const near = corridors.nearestWithin(lon, lat, T.DARK_NEAR_NM);
     if (near && near.nm <= T.DARK_NEAR_NM && peers >= T.DARK_PEERS) {
       signals.push(sig('DARK', 'moderate', `no AIS for ${Math.round(silentMin)} min; last seen ${near.nm.toFixed(1)} nm from ${near.name} at ${last[3].toFixed(1)} kn; ${peers} ships within ${T.DARK_PEER_NM} nm kept reporting`, null));
     }
@@ -100,8 +99,12 @@ export function evaluate({ vessel: v, track, now, corridors, weather, watch, pee
     }
   }
   if (FOC_SHADOW.has(v.flagCode) && signals.length) signals.push(sig('FOC', 'weak', `flag ${v.flag} (from MMSI)`, null));
-  if (isTankerOrCargo(v.type) && RU_GOF_DEST.test(v.dest || '') && signals.some((s) => s.id === 'DRAG' || s.id === 'LOITER'))
-    signals.push(sig('PROFILE', 'moderate', `${v.typeLabel} with destination "${v.dest}" plus slow-movement signal`, null));
+  // PROFILE is about ships LEAVING Russian Gulf of Finland ports (as in past incidents). Inbound ships don't qualify:
+  // the track must show it inside a Russian port zone within the last 6 h, and its destination must not be Russian.
+  if (isTankerOrCargo(v.type) && !RU_GOF_DEST.test(v.dest || '') && signals.some((s) => s.id === 'DRAG' || s.id === 'LOITER')) {
+    const dep = track.map((p) => corridors.nearestPort(p[0], p[1])).find((q) => q?.inside && q.country === 'RU');
+    if (dep) signals.push(sig('PROFILE', 'moderate', `${v.typeLabel} outbound from ${dep.name} (tracked in port zone within 6 h) plus slow-movement signal`, null));
+  }
 
   if (!signals.length) return { signals, level: null, asset: corr?.name ?? null, corridor: corr };
 

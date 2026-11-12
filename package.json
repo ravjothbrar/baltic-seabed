@@ -12,7 +12,7 @@
     "build": "npm --prefix web install && npm --prefix web run build",
     "fetch:static": "NODE_USE_ENV_PROXY=1 node scripts/fetch-static.mjs",
     "fetch:watchlist": "NODE_USE_ENV_PROXY=1 node scripts/fetch-watchlist.mjs",
-    "eval": "node --no-warnings eval/run-eval.mjs"
+    "eval": "node --no-warnings eval/run-eval.mjs && node --no-warnings eval/regressions.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

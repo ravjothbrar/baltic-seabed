@@ -37,7 +37,7 @@ for (let i = 0; i < SAMPLES; i++) {
     for (const f of j.features || []) {
       const p = f.properties; const [lon, lat] = f.geometry.coordinates;
       if (!inBaltic([lon, lat])) continue;
-      add(p.mmsi, [+lon.toFixed(4), +lat.toFixed(4), Math.round(p.timestampExternal / 1000), p.sog >= 102.3 ? 0 : p.sog, p.cog >= 360 ? 0 : Math.round(p.cog), p.navStat]);
+      add(p.mmsi, [+lon.toFixed(4), +lat.toFixed(4), Math.round(p.timestampExternal / 1000), p.sog >= 102.3 ? null : p.sog, p.cog >= 360 ? null : Math.round(p.cog), p.navStat]);
       if (p.timestampExternal > max) max = p.timestampExternal; n++;
     }
     from = max ? max - 1000 : Date.now() - 60e3;

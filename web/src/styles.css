@@ -735,3 +735,40 @@ body.hero-on #hint { display: none; }
   #hint .hide-m { display: none; }
   #hint .only-m { display: inline; }
 }
+
+/* ── "Created by" badge ─────────────────────────────────────────────── */
+.byline {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  margin-left: 14px; padding: 5px 10px 5px 9px;
+  border: 1px solid rgba(169, 139, 255, 0.55); border-radius: 2px;
+  background: linear-gradient(180deg, rgba(169, 139, 255, 0.16), rgba(169, 139, 255, 0.07));
+  box-shadow: 0 0 0 1px rgba(169, 139, 255, 0.06) inset, 0 0 18px rgba(169, 139, 255, 0.14);
+  color: var(--violet); text-decoration: none; cursor: pointer;
+  font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 10.5px; letter-spacing: 0.16em; line-height: 1;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.byline-k { opacity: 0.7; }
+.byline-n { color: #e6dcff; font-family: var(--sans, Inter, system-ui, sans-serif); letter-spacing: 0.02em; font-size: 12.5px; font-weight: 500; }
+.byline-a { opacity: 0.8; transition: transform 0.2s; }
+.byline:hover { background: rgba(169, 139, 255, 0.24); box-shadow: 0 0 0 1px rgba(169, 139, 255, 0.2) inset, 0 0 26px rgba(169, 139, 255, 0.3); }
+.byline:hover .byline-a { transform: translate(2px, -2px); }
+.byline:focus-visible { outline: 1px solid var(--violet); outline-offset: 2px; }
+.hero-actions { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; margin-top: 34px; }
+.hero-actions .hero-go { margin-top: 0; }
+.byline-hero { margin-left: 0; padding: 0 16px; font-size: 11px; }
+.byline-hero .byline-n { font-size: 14px; }
+.foot-link { color: var(--violet); text-decoration: none; font-weight: 600; }
+.foot-link:hover { text-decoration: underline; }
+/* keep the top bar on one line: drop secondary chips as width shrinks */
+@media (max-width: 1720px) { .topbar .chip:has(#c-sweep) { display: none; } }
+@media (max-width: 1600px) { .topbar .chip:has(#c-msgs) { display: none; } }
+@media (max-width: 1500px) { .topbar .strap { display: none; } }
+@media (max-width: 1300px) { .topbar .chip:has(#c-feeds) { display: none; } }
+@media (max-width: 1180px) { .topbar #b-signals { display: none; } }
+.byline-sheet { display: none; }
+@media (max-width: 900px) {
+  .topbar .byline { display: none; }
+  .hud .hud-obs { display: none; }
+  .byline-sheet { display: inline-flex; margin: 0 0 4px; padding: 5px 9px; gap: 7px; font-size: 9px; pointer-events: auto; }
+  .byline-sheet .byline-n { font-size: 12px; }
+}
