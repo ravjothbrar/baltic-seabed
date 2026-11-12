@@ -163,6 +163,7 @@ export function createFlatMap(container) {
 
   // ---------- vessels ----------
   function upsertVessels(list) {
+    countDirty = true;
     for (const v of list) {
       if (typeof v.lat !== 'number' || typeof v.lon !== 'number') continue;
       const [x, y] = P(v.lon, v.lat);
@@ -271,7 +272,9 @@ export function createFlatMap(container) {
     return Math.abs(b[1] - a[1]) * T.k;
   }
 
+  let countDirty = false;
   function render() {
+    if (countDirty) { countDirty = false; emitCameraSoon(); }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.clearRect(0, 0, W, H);
     // gliders (sim): faint discs + small chevrons drifting on a racetrack
@@ -380,7 +383,8 @@ export function createFlatMap(container) {
   // keep the browser from page-zooming on trackpad pinch even when d3 is at a scale limit
   container.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
-  let camT = 0;
+  let camT = 0, camTimer = 0;
+  function emitCameraSoon() { if (!camTimer) camTimer = setTimeout(() => { camTimer = 0; camT = 0; emitCamera(); }, 300); }
   function emitCamera() {
     const now = performance.now(); if (now - camT < 120) return; camT = now;
     const c = projection.invert([T.invertX(W / 2), T.invertY(H / 2)]) || [20, 58];

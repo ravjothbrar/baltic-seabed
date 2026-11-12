@@ -75,7 +75,7 @@ try {
     add({ id: `osm-${w.id}`, name, kind: 'power', named: isNamed(name), source: 'OpenStreetMap' },
       { type: 'LineString', coordinates: w.geometry.map((g) => [g.lon, g.lat]) });
   }
-  console.log('· OpenStreetMap power cables merged');
+  console.log(`· OpenStreetMap power cables merged: ${(osm.elements || []).length}`);
 } catch { console.log('· (no OpenStreetMap power-cable export; skipping)'); }
 
 const infra = { type: 'FeatureCollection', generated: new Date().toISOString(), features };

@@ -157,7 +157,7 @@ document.querySelector('#app').innerHTML = `
 
   <section class="bottom">
     <section class="panel" data-tab="INCIDENTS">
-      <div class="panel-h"><span class="t">Incident Log · Baltic seabed</span><i class="info" data-tip="Real suspected-damage cases since 2022, with sources and how each case actually ended. Click one to fly to it.">i</i><span class="tag" id="t-inc">—</span></div>
+      <div class="panel-h"><span class="t">Incident Log</span><i class="info" data-tip="Real suspected-damage cases since 2022, with sources and how each case actually ended. Click one to fly to it.">i</i><span class="tag" id="t-inc">—</span></div>
       <div class="panel-b"><div class="incs" id="incs"></div></div>
     </section>
     <section class="panel" data-tab="GLIDERS">
@@ -276,11 +276,11 @@ function spark(arr, color) {
 const TILE_DEFS = [
   { k: 'vessels', label: 'Vessels', sub: 'tracked live', color: '#cfe9e6', cls: '', focus: 'moving', fname: 'ships under way',
     tip: 'Ships that reported a position in the last 30 minutes. Click to highlight the ones under way.' },
-  { k: 'inCorridor', label: 'In Corridor', sub: '≤1.5 nm of asset', color: '#53f0c9', cls: '', focus: 'corridor', fname: 'ships within 1.5 nm of a cable or pipeline',
+  { k: 'inCorridor', label: 'In Corridor', sub: 'near cables', color: '#53f0c9', cls: '', focus: 'corridor', fname: 'ships within 1.5 nm of a cable or pipeline',
     tip: 'Ships within 1.5 nautical miles of a cable or pipeline right now. In busy lanes that is completely normal. Click to highlight them.' },
-  { k: 'watchlist', label: 'Listed', sub: 'sanctions / watch', color: '#ff5fd2', cls: 'mag', focus: 'listed', fname: 'listed / sanctioned ships',
+  { k: 'watchlist', label: 'Listed', sub: 'sanctions lists', color: '#ff5fd2', cls: 'mag', focus: 'listed', fname: 'listed / sanctioned ships',
     tip: 'Ships on a sanctions, shadow-fleet or detention list (OpenSanctions). A listing is about ownership, not what the ship is doing. Click to highlight them.' },
-  { k: 'dark', label: 'AIS Dark', sub: 'gap near infra', color: '#ffb547', cls: 'amber', focus: 'alerts', fname: 'flagged ships',
+  { k: 'dark', label: 'AIS Dark', sub: 'signal gaps', color: '#ffb547', cls: 'amber', focus: 'alerts', fname: 'flagged ships',
     tip: 'Ships that stopped reporting near infrastructure while nearby ships kept reporting. Usually receiver coverage, sometimes not. Click to highlight flagged ships.' },
   { k: 'alerts', label: 'Alerts', sub: 'watch · elev · high', color: '#ff4d5e', cls: 'red', focus: 'alerts', fname: 'flagged ships', openAlerts: true,
     tip: 'Ships currently matching at least one pattern (WATCH · ELEVATED · HIGH). Click to highlight them and open the alert stream.' },
@@ -322,7 +322,7 @@ function renderTiles() {
     if (d.k === 'wind') {
       const v = t.querySelector('.v');
       v.textContent = vals.wind == null ? '—' : `${Math.round(vals.wind)} kn`;
-      t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'weather feed pending') : vals.wind >= 30 ? 'gale: slow speed is normal' : 'Gulf of Finland';
+      t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'awaiting data') : vals.wind >= 30 ? 'gale' : 'Gulf of Finland';
     } else setNum(t.querySelector('.v'), vals[d.k]);
     if (d.k === 'alerts' && s) t.querySelector('.s').textContent = `${s.alerts?.WATCH || 0} · ${s.alerts?.ELEVATED || 0} · ${s.alerts?.HIGH || 0}`;
     const h = state.hist[d.k];
@@ -461,7 +461,7 @@ function renderLegend() {
     ['incidents', 'dm', '#ff4d5e', 'INCIDENT'],
     ['gliders', '', '#53f0c9', 'GLIDER (SIM)'],
   ];
-  $('#legend').innerHTML = items.map(([k, ic, c, l]) => `<span class="lg ${k && !state.layers[k] ? 'off' : ''}" ${k ? `data-k="${k}" style="cursor:pointer"` : ''}><i class="${ic}" style="color:${c}"></i><span>${l}</span></span>`).join('') + `<span class="hint">SCROLL TO ZOOM · DRAG TO PAN · CLICK A SHIP</span>`;
+  $('#legend').innerHTML = items.map(([k, ic, c, l]) => `<span class="lg ${k && !state.layers[k] ? 'off' : ''}" ${k ? `data-k="${k}" style="cursor:pointer"` : ''}><i class="${ic}" style="color:${c}"></i><span>${l}</span></span>`).join('');
 }
 
 function sortedAlerts() {
@@ -577,15 +577,15 @@ function renderGlider() {
     el.innerHTML = `
       <div class="gl">
         <div class="ctl">
-          <div class="sl"><div class="lb"><span>GLIDERS N</span><b id="g-n">120</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="120"/></div>
-          <div class="sl"><div class="lb"><span>RADIUS R</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
+          <div class="sl"><div class="lb"><span>GLIDERS</span><b id="g-n">120</b></div><input type="range" id="g-nr" min="0" max="300" step="1" value="120"/></div>
+          <div class="sl"><div class="lb"><span>RADIUS</span><b id="g-r">8 km</b></div><input type="range" id="g-rr" min="2" max="20" step="1" value="8"/></div>
           <div class="sl"><div class="lb"><span>CORRIDORS</span><b id="g-cov2" style="color:var(--violet)">0%</b></div><div class="covbar"><i id="g-bar" style="width:0%"></i></div></div>
         </div>
         <div class="ro">
           <div><span>COVERAGE</span><b id="g-cov">0.0%</b></div>
-          <div><span>NAMED ASSETS</span><b id="g-named">—</b></div>
+          <div><span>ASSETS</span><b id="g-named">—</b></div>
           <div><span>OPERATORS</span><b class="v">1</b></div>
-          <div><span>ENDURANCE</span><b>≤3 mo</b></div>
+          <div><span>PATROL</span><b>≤3 mo</b></div>
         </div>
         <div class="as"><b>ASSUMPTIONS (SIM):</b> R is an <b>assumed</b> passive-acoustic detection radius, not a published spec. Placement is greedy max-coverage over ~5 km cells weighted by cable km × live traffic × 3 for named assets. <span id="g-depth">Depth not modelled.</span> 1 operator and ≤3-month endurance are Helsing's public SG-1 Fathom claims. No Helsing data is used.</div>
       </div>`;
@@ -725,7 +725,7 @@ function dossierHTML(v, track, alert, loading) {
       </div>
       ${v.watch ? `<div class="watchbox"><div class="k">LISTED VESSEL · ${esc((v.watch.risk || []).join(' · ').toUpperCase())}</div><p>${esc((v.watch.datasets || []).join(', '))}</p>${v.watch.url ? `<p><a href="${esc(v.watch.url)}" target="_blank" rel="noopener">OpenSanctions record ↗</a></p>` : ''}<p style="color:var(--ink-3)">A list match is about ownership or past conduct, not what this ship is doing now.</p></div>` : ''}
       <div class="sech">TRACK${hours ? ` · LAST ${hours} H · ${track.length} FIXES` : ''}</div>
-      <div style="font-size:11px;color:var(--ink-3)">${loading ? 'Loading track…' : track && track.length > 1 ? 'Drawn on the globe.' : 'No track history yet. It builds up while the server runs.'}</div>
+      <div style="font-size:11px;color:var(--ink-3)">${loading ? 'Loading track…' : track && track.length > 1 ? 'Drawn on the map.' : 'No track history yet. It builds up while the server runs.'}</div>
       ${alert ? `<div class="sech">SIGNALS</div><div class="sigs" style="margin:0 0 6px">${alert.signals.map((s) => `<span class="sig ${s.strength} ${s.explained ? 'x' : ''}">${SIGNALS[s.id]?.short || s.id}</span>`).join('')}</div><div style="font-size:11px;color:var(--ink-2)">See <b style="color:var(--amber)">What you shouldn't conclude</b> for the innocent explanations.</div>` : `<div class="sech">SIGNALS</div><div style="font-size:11px;color:var(--ink-3)">No anomaly rules triggered for this ship.</div>`}
       ${v.watch && v.watch.url ? '' : ''}
     </div>`;
@@ -983,7 +983,7 @@ function layoutForViewport() {
   } else {
     const homes = { left: $('.col-left'), right: $('.col-right'), bottom: $('.bottom') };
     // restore original order
-    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'Signal Core', "What you shouldn't conclude", 'Incident Log · Baltic seabed', 'Glider Coverage', 'Data Sources'];
+    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'Signal Core', "What you shouldn't conclude", 'Incident Log', 'Glider Coverage', 'Data Sources'];
     panels.sort((a, b) => order.indexOf($('.t', a).textContent) - order.indexOf($('.t', b).textContent));
     panels.forEach((p) => { p.hidden = false; if (p.dataset.home) homes[p.dataset.home].appendChild(p); });
   }
@@ -1211,7 +1211,7 @@ const tabPanel = (tab, sel) => () => (MOBILE() ? '#sheet' : sel);
 function onTab(tab) { if (MOBILE()) setSheetTab(tab, true); }
 const TOUR_STEPS = [
   {
-    target: () => (MOBILE() ? '#globe' : '#frame'),
+    target: () => '#frame',
     title: 'A live map of the Baltic',
     body: 'Every dot is a <b>real ship</b> reporting its position right now. The glowing lines are seabed infrastructure: <span class="c-cy">telecom cables</span>, <span class="c-vi">power cables</span> and <span class="c-am">gas pipelines</span>. Red <span class="c-rd">◆</span> marks past incidents.',
     before: () => { if (MOBILE()) $('#sheet').classList.add('min'); globe.flyRegion('BALTIC', 1.6); },
