@@ -169,7 +169,9 @@
         sub.style.top = (top - subH - Math.max(10, fs * 0.05)) + 'px';
         var sTop = top - subH - Math.max(10, fs * 0.05) - stats.getBoundingClientRect().height - (mob ? 22 : 34);
         stats.style.top = sTop + 'px';
-        if (mob) col.style.top = Math.max(76, sTop - col.getBoundingClientRect().height - 26) + 'px';
+        var colH = col.getBoundingClientRect().height;
+        if (mob) col.style.top = Math.max(76, sTop - colH - 26) + 'px';
+        else { col.style.top = ''; var cTop = col.getBoundingClientRect().top; if (cTop + colH + 40 > sTop) col.style.top = Math.max(88, sTop - colH - 40) + 'px'; }
       }
       fit(); addEventListener('resize', fit);
       if (document.fonts) { document.fonts.load('900 100px "BSW Display"').then(fit); document.fonts.ready.then(fit); }
