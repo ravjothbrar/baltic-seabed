@@ -9,7 +9,9 @@
         "Nord Stream 1",
         "Nord Stream 2"
       ],
-      "vessel": null,
+      "vessel": {
+        "name": "Andromeda (sailing yacht, alleged)"
+      },
       "lat": 55.5,
       "lon": 15.6,
       "approx": true,
@@ -41,17 +43,24 @@
         {
           "label": "US News (Reuters)",
           "url": "https://www.usnews.com/news/world/articles/2026-09-24/croatian-court-allows-extradition-of-nord-stream-blast-suspect-to-germany-media-reports"
+        },
+        {
+          "label": "Al Jazeera (Reuters/AP)",
+          "url": "https://www.aljazeera.com/news/2026/7/2/german-prosecutors-charge-ukrainian-suspect-over-nord-stream-explosions"
+        },
+        {
+          "label": "CBC Investigates",
+          "url": "https://amp.cbc.ca/news/investigates/nord-stream-pipeline-explosion-ukraine-diver-1.7296527"
         }
       ],
       "fieldSources": {
         "date": [1],
         "assets": [1, 2],
-        "vessel": [],
+        "vessel": [1, 6, 7],
         "location": [1, 2],
         "summary": [1, 2],
         "outcome": [1, 2, 4, 5]
-      },
-      "unsourced": ["vessel"]
+      }
     },
     {
       "id": "newnew-polar-bear-2023",
