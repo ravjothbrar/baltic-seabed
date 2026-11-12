@@ -35,19 +35,27 @@ npm run build
 ```bash
 npm start
 ```
-Open http://localhost:8787. For frontend dev with hot reload, run `npm start` in one terminal and `npm --prefix web run dev` in another, then open :5173.
+Open http://localhost:8787. For frontend dev with hot reload, run `npm start` in one terminal and `npm --prefix web run dev` in another, then open :5173. Add `?nohero` to skip the intro and `?tour` to force the tour.
 
 Other commands: `npm run eval` runs the detection tests, `npm run fetch:static` rebuilds the cable layers, and `npm run fetch:watchlist` refreshes the sanctions list.
 
 ## Deploy
-One always-on Node process, built from the `Dockerfile`, running on Fly.io (about $3–5 a month), with DNS on Cloudflare.
+**Free: GitHub Pages (browser mode).** `.github/workflows/pages.yml` builds the site and deploys it to Pages on every
+push to `main`, and again every 15 minutes. Visitors' browsers poll Digitraffic directly (it allows cross-origin requests and
+needs no key) and run the same `server/engine.js` + `detect.js` locally. Each scheduled run samples about 10 minutes of AIS
+and extends `data/history.json`, so tracks and loiter or slowdown rules work as soon as the page opens.
+One-time setup: Settings → Pages → Source: **GitHub Actions**.
 
-On every push to `main`, GitHub Actions runs CI (`ci.yml`) and deploys (`deploy.yml`). Every Monday it also refreshes the data (`refresh-data.yml`).
-See `docs/OUTREACH.md` for what happens after it's live.
+**Optional: Fly.io (server mode, about $3–5 a month).** One always-on Node process. It adds a 48 h SQLite archive (for
+`npm run eval` on real labels), 10-second track resolution and whole-Baltic coverage via an aisstream.io key.
+Run the `deploy-fly` workflow manually (needs `FLY_API_TOKEN`).
+
+The front end detects which mode it's in (`web/src/datasource.js`): if `/api/snapshot` answers, it uses the server.
+Otherwise it runs the engine in the browser.
 
 ## Layout
 ```
-server/   index.js (ingest, state, SSE, API) · detect.js (rules) · corridors.js · ais-meta.js · geo.js
-web/      Vite + CesiumJS front end (src/main.js, src/globe.js, src/glider.worker.js)
+server/   engine.js (live picture, shared with browser) · detect.js (rules) · index.js (Node: SSE, SQLite, aisstream)
+web/      Vite + CesiumJS front end (main.js, globe.js, basemap.js, tour.js, datasource.js, glider.worker.js)
 scripts/  data builders     eval/  detection harness     docs/  contract, outreach, screenshots
 ```

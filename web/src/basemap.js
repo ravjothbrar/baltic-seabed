@@ -3,10 +3,10 @@
 import * as Cesium from 'cesium';
 
 export const MAP = {
-  sea: '#040b11',
-  seaDeep: '#03080d',
-  land: '#141e25',
-  landEdge: '#1b2830',
+  sea: '#03090e',
+  seaDeep: '#02060a',
+  land: '#1f2e38',
+  landDot: 'rgba(140, 200, 210, 0.075)',
   coast: 'rgba(96, 204, 218, 0.62)',
   coastGlow: 'rgba(83, 240, 201, 0.35)',
   border: 'rgba(132, 168, 178, 0.32)',
@@ -68,8 +68,9 @@ export class VectorMapProvider {
     grad.addColorStop(0, MAP.sea); grad.addColorStop(1, MAP.seaDeep);
     g.fillStyle = grad; g.fillRect(0, 0, S, S);
 
-    // graticule
+    // graticule (skipped on the coarsest tiles, which get stretched)
     const span = e - w;
+    if (level >= 2) {
     const step = span > 40 ? 10 : span > 8 ? 5 : span > 1.5 ? 1 : 0.5;
     g.lineWidth = 1;
     for (let lon = Math.ceil(w / step) * step; lon <= e; lon += step) {
@@ -79,6 +80,7 @@ export class VectorMapProvider {
     for (let lat = Math.ceil(s / step) * step; lat <= n; lat += step) {
       g.strokeStyle = lat % 5 === 0 ? MAP.gratMajor : MAP.grat;
       g.beginPath(); g.moveTo(0, Math.round(py(lat)) + 0.5); g.lineTo(S, Math.round(py(lat)) + 0.5); g.stroke();
+    }
     }
 
     const [bx0, by0, bx1, by1] = this.box;
@@ -103,8 +105,17 @@ export class VectorMapProvider {
     const paintLand = (list, coastW) => {
       if (!path(list)) return;
       g.fillStyle = MAP.land; g.fill('evenodd');
+      // tactical dot-grid texture on land (tile-aligned so it is seamless)
+      if (level >= 4) {
+        g.save(); g.clip('evenodd');
+        g.fillStyle = MAP.landDot;
+        const st = level >= 8 ? 8 : 6;
+        for (let yy = st / 2; yy < S; yy += st) for (let xx = st / 2; xx < S; xx += st) g.fillRect(xx, yy, 1, 1);
+        g.restore();
+        path(list);
+      }
       g.save();
-      g.shadowColor = MAP.coastGlow; g.shadowBlur = 5;
+      if (level >= 5) { g.shadowColor = MAP.coastGlow; g.shadowBlur = 4; }
       g.strokeStyle = MAP.coast; g.lineWidth = coastW; g.lineJoin = 'round';
       g.stroke();
       g.restore();
@@ -149,7 +160,7 @@ const sp = (t) => t.split('').join(' ');
 // [text, lon, lat, kind, minRange(m), maxRange(m), priority]
 export const PLACES = [
   ['BALTIC SEA', 18.6, 55.7, 'sea', 2.5e5, 7e6, 92],
-  ['GULF OF FINLAND', 25.6, 59.82, 'gulf', 8e4, 2.6e6, 88],
+  ['GULF OF FINLAND', 26.9, 59.95, 'gulf', 8e4, 2.6e6, 97],
   ['GULF OF BOTHNIA', 20.1, 62.2, 'gulf', 1.5e5, 3.2e6, 86],
   ['BOTHNIAN BAY', 23.4, 64.75, 'gulf', 1e5, 1.6e6, 70],
   ['GULF OF RIGA', 23.35, 57.55, 'gulf', 8e4, 2.2e6, 84],
@@ -223,6 +234,7 @@ export function addPlaceLabels(scene, declutter) {
       horizontalOrigin: st.dot ? Cesium.HorizontalOrigin.LEFT : Cesium.HorizontalOrigin.CENTER,
       verticalOrigin: Cesium.VerticalOrigin.CENTER,
       pixelOffset: st.dot ? new Cesium.Cartesian2(7, 0) : Cesium.Cartesian2.ZERO,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
       show: false,
     });
     let dot = null;
@@ -239,6 +251,7 @@ export function createDeclutter(scene) {
   const toWin = Cesium.SceneTransforms.worldToWindowCoordinates || Cesium.SceneTransforms.wgs84ToWindowCoordinates;
   const scratch = new Cesium.Cartesian2();
   let enabled = true;
+  let reserved = () => [];
   function add(it) { it.on = false; it.group = it.group || 'map'; items.push(it); return it; }
   function remove(pred) { for (let i = items.length - 1; i >= 0; i--) if (pred(items[i])) items.splice(i, 1); }
   function run() {
@@ -267,10 +280,14 @@ export function createDeclutter(scene) {
       else it.on = false;
     }
     cand.sort((a, b) => b.score - a.score);
-    const placed = [];
+    let placed = [];
+    try { placed = reserved() || []; } catch { placed = []; }
     for (const c of cand) {
       const [a0, b0, a1, b1] = c.rect;
       const clash = placed.some(([x0, y0, x1, y1]) => a0 < x1 && a1 > x0 && b0 < y1 && b1 > y0);
+      // keep labels inside the canvas so they never get sliced by its edge
+      const clip = a0 < 2 || b0 < 2 || a1 > W - 2 || b1 > H - 2;
+      if (clip && c.it.group !== 'incident') { c.it.on = false; continue; }
       c.it.on = !clash;
       if (!clash) placed.push(c.rect);
     }
@@ -280,5 +297,5 @@ export function createDeclutter(scene) {
       if (it.onChange) it.onChange(it.on);
     }
   }
-  return { add, remove, run, each: (f) => items.forEach(f), setEnabled: (v) => { enabled = v; } };
+  return { add, remove, run, each: (f) => items.forEach(f), setEnabled: (v) => { enabled = v; }, setReserved: (f) => { reserved = f; } };
 }

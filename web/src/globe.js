@@ -651,6 +651,7 @@ export function createGlobe(container) {
     setCoast,
     setLand,
     setFocus,
+    setReserved: (f) => declutter.setReserved(f),
     getFocus: () => focus,
     setIncidents,
     upsertVessels,

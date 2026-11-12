@@ -3,6 +3,7 @@ import { createDataSource } from './datasource.js';
 import './styles.css';
 import { createGlobe, REGIONS, kmBetween } from './globe.js';
 import GliderWorker from './glider.worker.js?worker';
+import { createTour, offerTour } from './tour.js';
 const ds = createDataSource();
 
 // ---------------------------------------------------------------- constants
@@ -72,25 +73,26 @@ document.querySelector('#app').innerHTML = `
     <span class="chip hide-m"><b id="c-utc" style="margin:0">—</b></span>
     <span class="chip hide-m">FEEDS<b id="c-feeds">—</b></span>
     <span class="chip hide-m">MSG/MIN<b id="c-msgs">—</b></span>
+    <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m">TOUR</span></button>
     <button class="chip btn hide-m" id="b-signals">WHAT SIGNALS MEAN</button>
     <span class="status-pill" id="c-level" data-level="STALE">CONNECTING</span>
   </header>
 
   <aside class="col col-left">
     <section class="panel" data-tab="ASSETS" style="flex:none">
-      <div class="panel-h"><span class="t">Sensor Grid</span><span class="tag live" id="t-live">LIVE</span></div>
+      <div class="panel-h"><span class="t">Sensor Grid</span><i class="info" data-tip="Live counts from the ship feed. Click a tile to highlight those ships on the map.">i</i><span class="tag live" id="t-live">LIVE</span></div>
       <div class="panel-b"><div class="tiles" id="tiles"></div></div>
     </section>
     <section class="panel" data-tab="SOURCES" style="flex:none">
-      <div class="panel-h"><span class="t">Data Layers</span><span class="tag" id="t-layers">6</span></div>
+      <div class="panel-h"><span class="t">Data Layers</span><i class="info" data-tip="Switch map layers on and off. The small text shows where each layer comes from and how fresh it is.">i</i><span class="tag" id="t-layers">6</span></div>
       <div class="panel-b"><div class="layers" id="layers"></div></div>
     </section>
     <section class="panel" data-tab="ASSETS" style="flex:1">
-      <div class="panel-h"><span class="t">Critical Assets</span><span class="tag" id="t-assets">—</span></div>
+      <div class="panel-h"><span class="t">Critical Assets</span><i class="info" data-tip="Cables and pipelines named in past incidents, with how many ships are inside their 1.5 nm corridor right now. Click one to fly there.">i</i><span class="tag" id="t-assets">—</span></div>
       <div class="panel-b"><div class="assets" id="assets"></div></div>
     </section>
     <section class="panel" data-tab="SOURCES" style="flex:none">
-      <div class="panel-h"><span class="t">Visual Presets</span></div>
+      <div class="panel-h"><span class="t">Visual Presets</span><i class="info" data-tip="Change the look of the map. SONAR and NVG are styles only; they add no data.">i</i></div>
       <div class="panel-b"><div class="presets" id="presets"></div></div>
     </section>
   </aside>
@@ -126,6 +128,8 @@ document.querySelector('#app').innerHTML = `
         <div><span class="lead">SURFACE ACTIVITY ··········</span> <span class="hl">INGESTED</span></div>
         <div class="row"><span class="lead">SUBSURFACE ACTIVITY ·······</span> <span class="am">NO SENSOR</span></div>
       </div>
+      <div class="focus-bar" id="focus-bar"></div>
+      <div class="hint" id="hint"><span class="hint-dot"></span><span class="hide-m">Click any ship, cable or <b>◆</b> incident for details · scroll to zoom · drag to pan</span><span class="only-m">Tap a ship or <b>◆</b> for details</span></div>
       <div class="legend" id="legend"></div>
       <aside class="dossier" id="dossier"></aside>
     </div>
@@ -133,30 +137,30 @@ document.querySelector('#app').innerHTML = `
 
   <aside class="col col-right">
     <section class="panel" data-tab="ALERTS" style="flex:1.25">
-      <div class="panel-h"><span class="t">Alert Stream</span><span class="tag live" id="t-alerts">0 LIVE</span></div>
+      <div class="panel-h"><span class="t">Alert Stream</span><i class="info" data-tip="Ships whose behaviour matches a pattern seen in past incidents. Click one to fly to it and open its dossier. These are patterns, not findings.">i</i><span class="tag live" id="t-alerts">0 LIVE</span></div>
       <div class="panel-b"><div class="alerts" id="alerts"></div></div>
     </section>
     <section class="panel" data-tab="ALERTS" style="flex:none">
-      <div class="panel-h"><span class="t">Signal Core</span><span class="tag">24H RULES</span></div>
+      <div class="panel-h"><span class="t">Signal Core</span><i class="info" data-tip="How many ships each rule is firing on right now. A rule that fires a lot is weak evidence on its own.">i</i><span class="tag">24H RULES</span></div>
       <div class="panel-b"><div class="meters" id="meters"></div></div>
     </section>
     <section class="panel sc" data-tab="ALERTS" style="flex:1">
-      <div class="panel-h"><span class="t">What you shouldn't conclude</span><span class="tag warn">READ FIRST</span></div>
+      <div class="panel-h"><span class="t">What you shouldn't conclude</span><i class="info" data-tip="The innocent explanations for the selected alert: weather, nearby anchorages, ship type, receiver coverage, and how past cases ended.">i</i><span class="tag warn">READ FIRST</span></div>
       <div class="panel-b" id="sc"></div>
     </section>
   </aside>
 
   <section class="bottom">
     <section class="panel" data-tab="INCIDENTS">
-      <div class="panel-h"><span class="t">Incident Log · Baltic seabed</span><span class="tag" id="t-inc">—</span></div>
+      <div class="panel-h"><span class="t">Incident Log · Baltic seabed</span><i class="info" data-tip="Real suspected-damage cases since 2022, with sources and how each case actually ended. Click one to fly to it.">i</i><span class="tag" id="t-inc">—</span></div>
       <div class="panel-b"><div class="incs" id="incs"></div></div>
     </section>
     <section class="panel" data-tab="GLIDERS">
-      <div class="panel-h"><span class="t">Glider Coverage</span><span class="tag sim">SIMULATION</span></div>
+      <div class="panel-h"><span class="t">Glider Coverage</span><i class="info" data-tip="A simulation, not real data: drag to place autonomous underwater gliders along the corridors and see how much of the seabed they would cover.">i</i><span class="tag sim">SIMULATION</span></div>
       <div class="panel-b" id="glider"></div>
     </section>
     <section class="panel" data-tab="SOURCES">
-      <div class="panel-h"><span class="t">Data Sources</span><span class="tag" id="t-src">—</span></div>
+      <div class="panel-h"><span class="t">Data Sources</span><i class="info" data-tip="Every feed this page uses, whether it is live, and the known gaps.">i</i><span class="tag" id="t-src">—</span></div>
       <div class="panel-b"><div class="srcs" id="srcs"></div></div>
     </section>
   </section>
@@ -266,17 +270,39 @@ function spark(arr, color) {
 
 // ---------------------------------------------------------------- renderers
 const TILE_DEFS = [
-  { k: 'vessels', label: 'Vessels', sub: 'tracked live', color: '#cfe9e6', cls: '' },
-  { k: 'inCorridor', label: 'In Corridor', sub: '≤1.5 nm of asset', color: '#53f0c9', cls: '' },
-  { k: 'watchlist', label: 'Listed', sub: 'sanctions / watch', color: '#ff5fd2', cls: 'mag' },
-  { k: 'dark', label: 'AIS Dark', sub: 'gap near infra', color: '#ffb547', cls: 'amber' },
-  { k: 'alerts', label: 'Alerts', sub: 'watch · elev · high', color: '#ff4d5e', cls: 'red' },
-  { k: 'wind', label: 'Wind', sub: 'Gulf of Finland', color: '#5cc8ff', cls: '' },
+  { k: 'vessels', label: 'Vessels', sub: 'tracked live', color: '#cfe9e6', cls: '', focus: 'moving', fname: 'ships under way',
+    tip: 'Ships that reported a position in the last 30 minutes. Click to highlight the ones under way.' },
+  { k: 'inCorridor', label: 'In Corridor', sub: '≤1.5 nm of asset', color: '#53f0c9', cls: '', focus: 'corridor', fname: 'ships within 1.5 nm of a cable or pipeline',
+    tip: 'Ships within 1.5 nautical miles of a cable or pipeline right now. In busy lanes that is completely normal. Click to highlight them.' },
+  { k: 'watchlist', label: 'Listed', sub: 'sanctions / watch', color: '#ff5fd2', cls: 'mag', focus: 'listed', fname: 'listed / sanctioned ships',
+    tip: 'Ships on a sanctions, shadow-fleet or detention list (OpenSanctions). A listing is about ownership, not what the ship is doing. Click to highlight them.' },
+  { k: 'dark', label: 'AIS Dark', sub: 'gap near infra', color: '#ffb547', cls: 'amber', focus: 'alerts', fname: 'flagged ships',
+    tip: 'Ships that stopped reporting near infrastructure while nearby ships kept reporting. Usually receiver coverage, sometimes not. Click to highlight flagged ships.' },
+  { k: 'alerts', label: 'Alerts', sub: 'watch · elev · high', color: '#ff4d5e', cls: 'red', focus: 'alerts', fname: 'flagged ships', openAlerts: true,
+    tip: 'Ships currently matching at least one pattern (WATCH · ELEVATED · HIGH). Click to highlight them and open the alert stream.' },
+  { k: 'wind', label: 'Wind', sub: 'Gulf of Finland', color: '#5cc8ff', cls: '',
+    tip: 'Current wind in the Gulf of Finland (Open-Meteo). In a gale, slow ships are normal, so speed-based alerts are discounted.' },
 ];
+function setFocus(k) {
+  const d = TILE_DEFS.find((x) => x.k === k);
+  const mode = d?.focus && state.focusTile !== k ? d.focus : null;
+  state.focusTile = mode ? k : null;
+  globe.setFocus(mode);
+  $$('#tiles .tile').forEach((t) => t.classList.toggle('sel', t.dataset.k === state.focusTile));
+  const bar = $('#focus-bar');
+  if (mode) {
+    bar.innerHTML = `<span class="fb-k">HIGHLIGHTING</span> ${esc(d.fname)} <button class="fb-x" data-unfocus>CLEAR ✕</button>`;
+    bar.classList.add('on');
+  } else bar.classList.remove('on');
+  if (mode && d?.openAlerts) {
+    if (MOBILE()) setSheetTab('ALERTS', true);
+    else { const p = $('.col-right .panel'); p.classList.remove('flash'); void p.offsetWidth; p.classList.add('flash'); }
+  }
+}
 function renderTiles() {
   const el = $('#tiles');
   if (!el.children.length) {
-    el.innerHTML = TILE_DEFS.map((d) => `<div class="tile ${d.cls}" data-k="${d.k}"><div class="k" style="color:${d.color}"><i></i><span style="color:var(--ink-3)">${d.label}</span></div><div class="v">—</div><div class="s">${d.sub}</div><div class="sp"></div></div>`).join('');
+    el.innerHTML = TILE_DEFS.map((d) => `<div class="tile ${d.cls}${d.focus ? ' act' : ''}" data-k="${d.k}" data-tip="${esc(d.tip)}"><div class="k" style="color:${d.color}"><i></i><span style="color:var(--ink-3)">${d.label}</span></div><div class="v">—</div><div class="s">${d.sub}</div><div class="sp"></div></div>`).join('');
   }
   const s = state.stats;
   const vals = {
@@ -690,6 +716,7 @@ function dossierHTML(v, track, alert, loading) {
 
 function selectAlert(id, fly = true) {
   const a = state.alerts.get(id);
+  $('#hint')?.classList.add('gone');
   state.selectedAlert = a ? id : null;
   renderAlerts();
   renderShouldnt();
@@ -789,6 +816,7 @@ async function getJSON(url) {
 let coastLoaded = false;
 async function loadStatic() {
   if (!coastLoaded) getJSON(asset('geo/coast.json')).then((c) => { if (c) { coastLoaded = true; globe.setCoast(c); } });
+  if (!state.landLoaded) getJSON(asset('geo/land.json')).then((l) => { if (l) { state.landLoaded = true; globe.setLand(l); } });
   const [infra, incidents, grid] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json'))]);
   if (infra && infra.features) {
     state.infra = infra;
@@ -977,7 +1005,7 @@ function exitHero() {
   document.body.classList.remove('hero-on');
   document.body.classList.add('hero-out');
   setTimeout(() => { globe.viewer.resize(); buildRing(); }, 30);
-  globe.heroEnd(() => { introDone = true; });
+  globe.heroEnd(() => { introDone = true; maybeOfferTour(); });
   setTimeout(() => { document.body.classList.remove('hero-out'); $('#hero').remove(); }, 1600);
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.removeEventListener(ev, exitHero));
 }
@@ -985,6 +1013,7 @@ if (params.has('nohero')) {
   introDone = true;
   $('#hero').remove();
   globe.flyRegion('BALTIC', 0);
+  setTimeout(maybeOfferTour, 1500);
 } else {
   document.body.classList.add('hero-on');
   globe.heroStart();
@@ -1005,6 +1034,19 @@ globe.on('camera', (c) => {
 });
 
 const tip = $('#tip');
+// map labels avoid the HUD overlays
+globe.setReserved(() => {
+  const g = $('#globe').getBoundingClientRect();
+  const out = [];
+  for (const sel of ['.hud.tl', '.hud.tr', '.hud.bl', '.hud.br', '.legend', '#hint:not(.gone)', '.focus-bar.on', '#dossier.on', '#regions']) {
+    const el = document.querySelector(sel);
+    if (!el || el.offsetParent === null) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    out.push([r.left - g.left - 4, r.top - g.top - 4, r.right - g.left + 4, r.bottom - g.top + 4]);
+  }
+  return out;
+});
 globe.on('hover', (id, pos) => {
   if (!id) { tip.style.display = 'none'; return; }
   const r = $('#globe').getBoundingClientRect();
@@ -1027,9 +1069,11 @@ globe.on('hover', (id, pos) => {
   tip.style.left = `${r.left + pos.x + 14}px`;
   tip.style.top = `${r.top + pos.y + 14}px`;
 });
+function dismissHint() { $('#hint')?.classList.add('gone'); }
 globe.on('pick', (id) => {
   tip.style.display = 'none';
   if (!id) return;
+  dismissHint();
   if (id.kind === 'vessel') {
     const a = [...state.alerts.values()].find((x) => x.mmsi === id.mmsi);
     if (a) selectAlert(a.id, false);
@@ -1048,6 +1092,10 @@ document.addEventListener('click', (e) => {
   const t = e.target;
   const reg = t.closest('.tab[data-r]');
   if (reg) { state.region = reg.dataset.r; renderRegions(); globe.flyRegion(state.region); return; }
+  const tl = t.closest('#tiles .tile[data-k]');
+  if (tl) { setFocus(tl.dataset.k); return; }
+  if (t.closest('[data-unfocus]')) { state.focusTile = null; setFocus(null); return; }
+  if (t.closest('#b-tour')) { startTour(); return; }
   const pr = t.closest('.preset');
   if (pr) { setPreset(pr.dataset.p); return; }
   const al = t.closest('.alert[data-id]');
@@ -1075,8 +1123,98 @@ document.addEventListener('click', (e) => {
   if (t.closest('#grab')) { $('#sheet').classList.toggle('min'); return; }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { $('#modal').classList.remove('on'); closeDossier(); }
+  if (e.key === 'Escape') { $('#modal').classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
 });
+
+// ---------------------------------------------------------------- tooltips for [data-tip]
+let tipEl = null;
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest?.('[data-tip]');
+  if (!el || el === tipEl) return;
+  tipEl = el;
+  const r = el.getBoundingClientRect();
+  tip.innerHTML = `<span class="tt">${esc(el.dataset.tip)}</span>`;
+  tip.classList.add('ui');
+  tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = r.left + r.width / 2 - w / 2, y = r.bottom + 8;
+  if (y + h > window.innerHeight - 8) y = r.top - h - 8;
+  x = Math.max(8, Math.min(window.innerWidth - w - 8, x));
+  tip.style.left = `${x}px`;
+  tip.style.top = `${y}px`;
+});
+document.addEventListener('mouseout', (e) => {
+  if (!tipEl) return;
+  const to = e.relatedTarget;
+  if (to && tipEl.contains(to)) return;
+  tipEl = null;
+  tip.classList.remove('ui');
+  tip.style.display = 'none';
+});
+
+// ---------------------------------------------------------------- guided tour
+const tabPanel = (tab, sel) => () => (MOBILE() ? '#sheet' : sel);
+function onTab(tab) { if (MOBILE()) setSheetTab(tab, true); }
+const TOUR_STEPS = [
+  {
+    target: () => (MOBILE() ? '#globe' : '#frame'),
+    title: 'A live map of the Baltic',
+    body: 'Every dot is a <b>real ship</b> reporting its position right now. The glowing lines are seabed infrastructure: <span class="c-cy">telecom cables</span>, <span class="c-vi">power cables</span> and <span class="c-am">gas pipelines</span>. Red <span class="c-rd">◆</span> marks past incidents.',
+    before: () => { if (MOBILE()) $('#sheet').classList.add('min'); globe.flyRegion('BALTIC', 1.6); },
+    wait: 700, pad: 0,
+  },
+  {
+    target: tabPanel('ALERTS', '.col-right .panel'),
+    title: 'Alerts are patterns, not findings',
+    body: 'When a ship <b>loiters</b>, <b>slows sharply</b> or <b>goes silent</b> over a cable, it lands here. Click one to fly to it.<br><span class="lv w">WATCH</span> one signal · <span class="lv e">ELEVATED</span> two · <span class="lv h">HIGH</span> three, including a drag or AIS gap.',
+    before: () => onTab('ALERTS'),
+  },
+  {
+    target: () => (MOBILE() ? '#sheet' : (state.selectedAlert ? '#dossier' : '.col-right .panel.sc')),
+    title: "Why it's probably innocent",
+    body: "Selecting an alert opens the ship's <b>dossier</b> (track, flag, any sanctions listing) and <b>What you shouldn't conclude</b>: the weather, nearby anchorages, ship type and receiver coverage that could explain it, and how past cases actually ended.",
+    before: () => {
+      const a = sortedAlerts()[0];
+      if (a) selectAlert(a.id, true);
+      onTab('ALERTS');
+    },
+    wait: 1300,
+  },
+  {
+    target: tabPanel('ASSETS', '.col-left .panel:nth-child(3)'),
+    title: 'Critical assets & regions',
+    body: 'The cables and pipelines named in past incidents, and how many ships are inside their 1.5 nm corridor <b>right now</b>. Click one, or use the region tabs above the map, to fly there.',
+    before: () => {
+      closeDossier(); state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null);
+      state.region = 'GULF OF FINLAND'; renderRegions(); globe.flyRegion('GULF OF FINLAND', 1.6);
+      onTab('ASSETS');
+    },
+    wait: 600,
+  },
+  {
+    target: tabPanel('INCIDENTS', '.bottom .panel:nth-child(1)'),
+    title: 'What actually happened before',
+    body: 'Seven real cases since 2022, each with sources. Read the outcome chips: <b>dismissed</b>, <b>inconclusive</b>, <b>accident</b>, <b>open</b>. Ship-tracking data alone has never settled one of them.',
+    before: () => onTab('INCIDENTS'),
+  },
+  {
+    target: tabPanel('GLIDERS', '.bottom .panel:nth-child(2)'),
+    title: 'What listening below the surface would add',
+    body: 'A clearly labelled <b>simulation</b>: drag the slider to place up to 300 autonomous underwater gliders along the corridors and watch the coverage change. The assumptions are spelled out; none of it uses real glider data.',
+    before: () => { state.region = 'BALTIC'; renderRegions(); globe.flyRegion('BALTIC', 1.6); onTab('GLIDERS'); },
+    wait: 500,
+  },
+  {
+    target: tabPanel('SOURCES', '.bottom .panel:nth-child(3)'),
+    title: 'All public data. Gaps flagged.',
+    body: 'Every feed, how fresh it is, and what is missing (in amber). Hover any <i class="info inl">i</i> or tile for a plain-English explanation. Replay this tour any time with <b>? TOUR</b>.',
+    before: () => onTab('SOURCES'),
+  },
+];
+const tour = createTour(TOUR_STEPS, { onEnd: () => { if (MOBILE()) { setSheetTab('ALERTS'); $('#sheet').classList.add('min'); } } });
+function startTour() { $('.tour-offer')?.remove(); tour.start(); }
+function maybeOfferTour() { if (!params.has('notour') && !params.has('tour') && !tour.active()) offerTour(startTour); }
+if (params.has('tour')) setTimeout(startTour, params.has('nohero') ? 1200 : 6500);
 
 window.addEventListener('resize', () => { layoutForViewport(); buildRing(); });
 layoutForViewport();
