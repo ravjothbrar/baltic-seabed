@@ -86,8 +86,12 @@ export function createFlatMap(container) {
 
   const P = (lon, lat) => projection([lon, lat]);
 
-  function fit() {
+  let lastW = -1, lastH = -1;
+  function fit(force = false) {
     const r = container.getBoundingClientRect();
+    // Skip the (expensive) re-projection when the size hasn't changed: avoids a visible re-render at the intro hand-off.
+    if (!force && Math.round(r.width) === lastW && Math.round(r.height) === lastH) return;
+    lastW = Math.round(r.width); lastH = Math.round(r.height);
     W = Math.max(1, r.width); H = Math.max(1, r.height); DPR = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';

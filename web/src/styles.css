@@ -559,10 +559,10 @@ body.hero-out .hero { opacity: 0; pointer-events: none; }
 .hero-bar i { display: block; height: 100%; background: var(--mint); width: 0; animation: heroBar 5.2s linear forwards; box-shadow: 0 0 8px var(--mint); }
 @keyframes heroBar { to { width: 100%; } }
 
-body.hero-on #app { grid-template-areas: "globe globe globe" "globe globe globe" "globe globe globe" "globe globe globe"; padding: 0; gap: 0; }
+/* During the intro the dashboard keeps its FINAL layout underneath the overlay (panels just invisible), so the flat
+   map is laid out and fully drawn before the swoop: nothing reflows or re-renders at the hand-off. */
 body.hero-on .topbar, body.hero-on .col-left, body.hero-on .col-right, body.hero-on .bottom, body.hero-on .foot,
-body.hero-on .tabs, body.hero-on .legend, body.hero-on .hud, body.hero-on .brk, body.hero-on .sheet { display: none; }
-body.hero-on .frame { border: 0; border-radius: 0; }
+body.hero-on .tabs, body.hero-on .legend, body.hero-on .hud, body.hero-on .brk, body.hero-on .sheet { visibility: hidden; }
 body.hero-out .topbar, body.hero-out .col, body.hero-out .bottom, body.hero-out .foot, body.hero-out .tabs, body.hero-out .hud, body.hero-out .legend { animation: rise .7s cubic-bezier(.2,.7,.2,1) .75s both; }
 body.hero-out .col-left { animation-delay: .85s; } body.hero-out .col-right { animation-delay: .9s; } body.hero-out .bottom { animation-delay: 1s; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -876,6 +876,7 @@ body.hero-on .mapctl { display: none; }
 /* intro uses a canvas globe (heroglobe.js); Cesium only for 3D GLOBE mode */
 body.hero-on .ring { display: none; }
 body.hero-swoop #flat { opacity: 0; transition: none; }
+#flat { transition: opacity .45s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

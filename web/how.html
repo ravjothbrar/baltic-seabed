@@ -25,7 +25,7 @@
 </head>
 <body class="how">
   <header class="h-top">
-    <a class="h-brand" href="./"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#53f0c9"/></svg><span>BALTIC SEABED WATCH</span></a>
+    <a class="h-brand" href="./"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#e2533f"/></svg><span>BALTIC SEABED WATCH</span></a>
     <nav><a href="#architecture">Architecture</a><a href="#signals">Signals</a><a href="#limits">Limits</a><a href="#brief">Brief</a><a class="h-open" href="./"><span class="h-full">Open the live map</span><span class="h-short">Live map</span> →</a></nav>
   </header>
 
@@ -40,26 +40,26 @@
       <figure class="hx-fig">
         <svg class="hx-svg" viewBox="0 0 640 360" role="img" aria-label="Cross-section: a ship on the surface broadcasting AIS, a glider listening mid-water, and a cable on the seabed inside its corridor">
           <defs>
-            <linearGradient id="hxSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2230"/><stop offset="1" stop-color="#050b10"/></linearGradient>
-            <linearGradient id="hxBed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2f37"/><stop offset="1" stop-color="#0b151a"/></linearGradient>
+            <linearGradient id="hxSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1c1e"/><stop offset="1" stop-color="#050505"/></linearGradient>
+            <linearGradient id="hxBed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d30"/><stop offset="1" stop-color="#0c0d0e"/></linearGradient>
           </defs>
           <path d="M0 78 Q40 72 80 78 T160 78 T240 78 T320 78 T400 78 T480 78 T560 78 T640 78 V360 H0 Z" fill="url(#hxSea)"/>
-          <path d="M0 78 Q40 72 80 78 T160 78 T240 78 T320 78 T400 78 T480 78 T560 78 T640 78" fill="none" stroke="rgba(160,230,220,.45)" stroke-width="1.2"/>
-          <path d="M0 292 C70 284 110 300 170 296 S280 276 340 286 S470 304 530 292 S610 282 640 288 V360 H0 Z" fill="url(#hxBed)" stroke="rgba(150,225,214,.35)" stroke-width="1"/>
-          <rect x="250" y="262" width="210" height="36" fill="rgba(83,240,201,.06)" stroke="rgba(83,240,201,.35)" stroke-dasharray="3 4"/>
-          <path d="M0 296 C120 292 220 290 340 288 S540 291 640 290" fill="none" stroke="#5cc8ff" stroke-width="2.2" class="hx-cable"/>
-          <g class="hx-ship" transform="translate(150 60)"><path d="M-34 14 L34 14 L26 26 L-26 26 Z" fill="#cfe9e6"/><rect x="-10" y="2" width="18" height="12" fill="#cfe9e6"/><rect x="2" y="-6" width="5" height="8" fill="#cfe9e6"/>
-            <path d="M14 -10 a14 14 0 0 1 14 14 M14 -20 a24 24 0 0 1 24 24" fill="none" stroke="#ffb547" stroke-width="1.4" class="hx-ais"/></g>
-          <line x1="150" y1="86" x2="150" y2="290" stroke="rgba(255,181,71,.35)" stroke-dasharray="2 5"/>
-          <g class="hx-glider" transform="translate(470 176)"><ellipse rx="22" ry="4.5" fill="#53f0c9"/><path d="M-4 0 L-14 -10 L-8 0 L-14 10 Z" fill="#53f0c9" opacity=".8"/>
-            <circle r="30" fill="none" stroke="rgba(83,240,201,.45)" class="hx-ping"/><circle r="30" fill="none" stroke="rgba(83,240,201,.45)" class="hx-ping hx-ping2"/></g>
+          <path d="M0 78 Q40 72 80 78 T160 78 T240 78 T320 78 T400 78 T480 78 T560 78 T640 78" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.2"/>
+          <path d="M0 292 C70 284 110 300 170 296 S280 276 340 286 S470 304 530 292 S610 282 640 288 V360 H0 Z" fill="url(#hxBed)" stroke="rgba(255,255,255,.28)" stroke-width="1"/>
+          <rect x="250" y="262" width="210" height="36" fill="rgba(226,83,63,.07)" stroke="rgba(226,83,63,.45)" stroke-dasharray="3 4"/>
+          <path d="M0 296 C120 292 220 290 340 288 S540 291 640 290" fill="none" stroke="#f2f2f2" stroke-width="2.2" class="hx-cable"/>
+          <g class="hx-ship" transform="translate(150 60)"><path d="M-34 14 L34 14 L26 26 L-26 26 Z" fill="#d9dcde"/><rect x="-10" y="2" width="18" height="12" fill="#d9dcde"/><rect x="2" y="-6" width="5" height="8" fill="#d9dcde"/>
+            <path d="M14 -10 a14 14 0 0 1 14 14 M14 -20 a24 24 0 0 1 24 24" fill="none" stroke="#e2533f" stroke-width="1.4" class="hx-ais"/></g>
+          <line x1="150" y1="86" x2="150" y2="290" stroke="rgba(226,83,63,.4)" stroke-dasharray="2 5"/>
+          <g class="hx-glider" transform="translate(470 176)"><ellipse rx="22" ry="4.5" fill="#fff"/><path d="M-4 0 L-14 -10 L-8 0 L-14 10 Z" fill="#fff" opacity=".8"/>
+            <circle r="30" fill="none" stroke="rgba(255,255,255,.45)" class="hx-ping"/><circle r="30" fill="none" stroke="rgba(255,255,255,.45)" class="hx-ping hx-ping2"/></g>
           <g font-family="'BSW Mono', ui-monospace, monospace" font-size="10" letter-spacing="1.2">
-            <text x="196" y="40" fill="#ffb547">AIS · SELF-REPORTED</text>
-            <text x="404" y="140" fill="#53f0c9">GLIDER · LISTENS BELOW</text>
-            <text x="262" y="254" fill="#8fd8ff">CABLE · 1.5 NM CORRIDOR</text>
-            <text x="26" y="232" fill="rgba(255,181,71,.8)">WHAT AIS CAN'T SEE ↓</text>
+            <text x="196" y="40" fill="#e2533f">AIS · SELF-REPORTED</text>
+            <text x="404" y="140" fill="#ffffff">GLIDER · LISTENS BELOW</text>
+            <text x="262" y="254" fill="#d9dcde">CABLE · 1.5 NM CORRIDOR</text>
+            <text x="26" y="232" fill="rgba(226,83,63,.85)">WHAT AIS CAN'T SEE ↓</text>
           </g>
-          <g font-family="'BSW Mono', ui-monospace, monospace" font-size="9" fill="rgba(127,233,211,.55)" text-anchor="end">
+          <g font-family="'BSW Mono', ui-monospace, monospace" font-size="9" fill="rgba(255,255,255,.45)" text-anchor="end">
             <text x="634" y="92">0 m</text><text x="634" y="142">20 m</text><text x="634" y="192">40 m</text><text x="634" y="242">60 m</text><text x="634" y="276">80 m</text>
           </g>
         </svg>
