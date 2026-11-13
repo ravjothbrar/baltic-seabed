@@ -5,10 +5,10 @@
 import { geoOrthographic, geoPath, geoGraticule10, geoArea, geoInterpolate } from 'd3-geo';
 
 const CENTER = [20.4, 58.6]; // Baltic
-// Deep-sea tones: dark slate-teal land on a navy sea; the live Baltic data is the main point of colour.
+// Near-monochrome (Clarity-style smoky greys); the live Baltic data is the one point of colour.
 const COL = {
-  ocean0: '#0f1d27', ocean1: '#03080c', land: '#22343c', coast: 'rgba(150, 225, 214, 0.32)', grat: 'rgba(127, 233, 211, 0.05)',
-  limb: 'rgba(120, 210, 220,', ring: 'rgba(170, 235, 225,', telecom: 'rgba(92, 200, 255,', power: 'rgba(169, 139, 255,', pipeline: 'rgba(255, 181, 71,',
+  ocean0: '#17191c', ocean1: '#040506', land: '#2b2f33', coast: 'rgba(228, 232, 236, 0.30)', grat: 'rgba(255, 255, 255, 0.045)',
+  limb: 'rgba(215, 222, 230,', ring: 'rgba(235, 238, 240,', telecom: 'rgba(92, 200, 255,', power: 'rgba(169, 139, 255,', pipeline: 'rgba(255, 181, 71,',
   ship: 'rgba(240, 245, 245, 0.9)', listed: '#ff5fd2', alert: '#ffb547', incident: '#ff5a6a',
 };
 // Flat-map colours the swoop blends into, so the cross-fade lands seamlessly.

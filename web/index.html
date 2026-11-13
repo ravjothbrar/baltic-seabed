@@ -39,20 +39,17 @@
     @font-face { font-family: 'BSW Mono'; src: url(fonts/plexmono-500.woff2) format('woff2'); font-weight: 500; font-display: swap; }
     /* metric-ish fallbacks so nothing reflows much when the web fonts arrive */
     @font-face { font-family: 'BSW Display Fallback'; src: local('Arial Narrow Bold'), local('ArialNarrow-Bold'), local('Roboto Condensed Bold'), local('DejaVu Sans Condensed Bold'), local('Liberation Sans Narrow Bold'); font-weight: 600 900; size-adjust: 104%; }
-    :root { --ix-accent: #53f0c9; --ix-warm: #ffb547; --ix-sea: #050b10; --ix-dim: rgba(255,255,255,.56); --ix-line: rgba(255,255,255,.16); }
-    html, body { margin: 0; background: #050b10; }
-    .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: radial-gradient(140% 100% at 72% 20%, #0a1620 0%, #050b10 55%, #03070a 100%);
+    :root { --ix-accent: #e2533f; --ix-dim: rgba(255,255,255,.56); --ix-line: rgba(255,255,255,.16); }
+    html, body { margin: 0; background: #000; }
+    .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: #000;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: background .7s ease; }
     html.nohero .intro { display: none; }
-    .intro-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .5s ease; }
+    .intro-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .38s ease; }
     .intro-shade { position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(120% 90% at 70% 30%, rgba(5,11,16,0) 40%, rgba(5,11,16,.55) 80%), linear-gradient(90deg, rgba(5,11,16,.78) 0%, rgba(5,11,16,.36) 32%, rgba(5,11,16,0) 52%); }
-    /* left depth-sounding scale: echo-sounder style marks with depths in metres */
-    .intro::before { content: ''; position: absolute; left: 10px; top: 90px; bottom: 30px; width: 4px; z-index: 2; pointer-events: none;
-      background: repeating-linear-gradient(to bottom, rgba(83,240,201,.38) 0 1px, transparent 1px 22px); }
-    .intro-depth { position: absolute; left: 18px; top: 90px; bottom: 30px; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
-      font: 400 9px/1 'BSW Mono', ui-monospace, monospace; letter-spacing: .08em; color: rgba(127, 233, 211, .55); }
-    @media (max-width: 900px) { .intro-depth { display: none; } }
+      background: radial-gradient(120% 90% at 70% 30%, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 80%), linear-gradient(90deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.35) 32%, rgba(0,0,0,0) 52%); }
+    /* left tick ruler (as on Clarity) */
+    .intro::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 6px; z-index: 2; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0) 0 27px, rgba(255,255,255,.55) 27px 28px, rgba(255,255,255,0) 28px 56px); }
     .intro-ui { position: absolute; inset: 0; transition: opacity .35s ease; }
     .ix-mono { font-family: 'BSW Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
     /* top strip: mark left, live + menu glyph right */
@@ -77,7 +74,7 @@
     .intro .intro-p { margin: 18px 0 0; font-size: clamp(15px, 1.2vw, 19px); line-height: 1.5; color: rgba(255,255,255,.86); letter-spacing: -.005em; animation: ixFade .8s ease both .5s; }
     .intro-act { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; margin-top: 26px; animation: ixFade .8s ease both .65s; }
     .intro-go { font: 500 12px 'BSW Mono', ui-monospace, monospace; letter-spacing: .24em; color: #000; background: #fff; border: 0; padding: 14px 22px; cursor: pointer; transition: background .2s, color .2s; }
-    .intro-go:hover { background: var(--ix-accent); color: #04130f; }
+    .intro-go:hover { background: var(--ix-accent); color: #fff; }
     .intro-go span { margin-left: 12px; }
     .intro .byline { display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid rgba(169,139,255,.55); background: rgba(169,139,255,.1);
       color: #a98bff; text-decoration: none; font: 400 10.5px 'BSW Mono', ui-monospace, monospace; letter-spacing: .16em; }
@@ -88,7 +85,7 @@
     .intro-stats { position: absolute; left: clamp(24px, 5.5vw, 108px); width: min(860px, 62vw); display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; animation: ixFade .9s ease both 1.2s; }
     .intro-stats div { border-top: 1px solid rgba(255,255,255,.75); padding-top: 12px; display: flex; flex-direction: column; }
     .intro-stats small { display: block; font: 400 11px/1.35 'BSW Mono', ui-monospace, monospace; letter-spacing: .02em; color: rgba(255,255,255,.85); min-height: 2.7em; }
-    .intro-stats b { display: block; margin-top: auto; padding-top: 10px; font: 400 clamp(26px, 2.6vw, 44px)/1 'BSW Mono', ui-monospace, monospace; letter-spacing: .02em; color: var(--ix-warm); white-space: nowrap; }
+    .intro-stats b { display: block; margin-top: auto; padding-top: 10px; font: 400 clamp(26px, 2.6vw, 44px)/1 'BSW Mono', ui-monospace, monospace; letter-spacing: .02em; color: var(--ix-accent); white-space: nowrap; }
     /* full-width mono subtitle + giant condensed word that bleeds off the bottom */
     .intro-sub { position: absolute; left: clamp(14px, 2.2vw, 40px); right: clamp(14px, 2.2vw, 40px); white-space: nowrap; overflow: hidden;
       font: 300 3.9vw/1 'BSW Mono', 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
@@ -97,7 +94,7 @@
       font-variation-settings: 'wdth' 62, 'wght' 900; letter-spacing: -.012em; text-transform: uppercase; font-size: 30vw; }
     .intro-word > span { display: inline-block; overflow: hidden; vertical-align: bottom; padding-top: .04em; }
     .intro-word > span > span { display: inline-block; animation: ixUp .95s cubic-bezier(.2,.75,.12,1) both;
-      background: linear-gradient(180deg, #f3fbfa 0%, #e9f7f5 52%, #8fe8d6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      background: linear-gradient(180deg, #f3fbfa 0%, #e9f7f5 45%, #8fe8d6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
     @keyframes ixUp { from { transform: translateY(105%); } to { transform: none; } }
     @keyframes ixFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     body.hero-out .intro { background: transparent; pointer-events: none; }
@@ -128,11 +125,10 @@
   <div id="hero" class="intro" aria-label="Baltic Seabed Watch: intro">
     <canvas id="intro-globe" class="intro-globe" aria-hidden="true"></canvas>
     <div class="intro-shade"></div>
-    <div class="intro-depth" aria-hidden="true"><span>0 m</span><span>50 m</span><span>100 m</span><span>150 m</span><span>200 m</span><span>250 m</span><span>300 m</span><span>350 m</span><span>400 m</span><span>450 m</span><span>500 m</span></div>
     <div class="intro-ui">
       <header class="intro-top">
-        <a class="mark" href="./" aria-label="Baltic Seabed Watch"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="#fff" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#53f0c9"/></svg><span>BALTIC SEABED WATCH</span></a>
-        <span class="live"><span><i></i>LIVE · <b data-hero="ships" id="hero-n">—</b> SHIPS</span><span class="opt">UNCLASSIFIED // OPEN SOURCE</span></span>
+        <a class="mark" href="./" aria-label="Baltic Seabed Watch"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14.5" stroke="#fff" stroke-width="1.6"/><path d="M5 18.5c3.6-3.2 7.4-3.2 11 0s7.4 3.2 11 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M8 23.5c2.7-2 5.3-2 8 0s5.3 2 8 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/><circle cx="16" cy="10" r="1.8" fill="#e2533f"/></svg><span>BALTIC SEABED WATCH</span></a>
+        <span class="live"><span><i></i>LIVE · <b data-hero="ships" id="hero-n">—</b> SHIPS</span><span class="opt">UNCLASSIFIED // OPEN SOURCE</span><span class="burger" aria-hidden="true"></span></span>
       </header>
       <div class="intro-bar"><i></i></div>
       <section class="intro-col">
@@ -154,7 +150,7 @@
     </div>
   </div>
   <script>
-    // Fit the giant word inside the page margins, place the subtitle and stats above it,
+    // Fit the giant word to the viewport width (Clarity-style full bleed), place the subtitle and stats above it,
     // stagger the letters, and scramble the mono subtitle in. Runs before first paint; refits when fonts arrive.
     (function () {
       var word = document.getElementById('intro-word'); if (!word) return;
@@ -166,11 +162,10 @@
         var W = innerWidth, H = innerHeight, mob = W < 900;
         word.style.fontSize = '100px';
         var w = word.getBoundingClientRect().width || 1;
-        var M = mob ? 16 : Math.max(24, Math.min(108, W * 0.055)), B = mob ? 18 : Math.max(26, H * 0.045);
-        var fs = 100 * (W - 2 * M) / w;                     // fill the width inside the page margins
+        var fs = 100 * (W + 0.04 * 100) / w;              // fill the width edge to edge
         fs = Math.min(fs, H * (mob ? 0.42 : 0.62));         // keep room above it on short screens
-        word.style.fontSize = fs + 'px'; word.style.left = M + 'px'; word.style.bottom = B + 'px';
-        var top = H - B - fs * 0.8 - fs * 0.02;             // visible top of the caps
+        word.style.fontSize = fs + 'px';
+        var top = H - fs * (0.8 - 0.135) - fs * 0.04;       // visible top of the caps
         var subH = sub.getBoundingClientRect().height;
         sub.style.top = (top - subH - Math.max(10, fs * 0.05)) + 'px';
         var sTop = top - subH - Math.max(10, fs * 0.05) - stats.getBoundingClientRect().height - (mob ? 22 : 34);

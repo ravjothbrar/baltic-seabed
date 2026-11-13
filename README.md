@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/hero.webp" alt="Baltic Seabed Watch landing screen: a huge SEABED wordmark over a deep-sea globe with live Baltic ship and cable data, a depth scale and live figures" width="900">
+  <img src="docs/readme/hero.webp" alt="Baltic Seabed Watch landing screen: a huge mint SEABED wordmark over a greyscale globe with live Baltic ship and cable data and live figures" width="900">
 </p>
 
 # Baltic Seabed Watch

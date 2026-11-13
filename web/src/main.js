@@ -1122,16 +1122,24 @@ function exitHero() {
   flat.resize(); buildRing(); // lay the dashboard out first so the swoop targets the final frame
   flat.flyRegion('BALTIC', 0);
   const hero = $('#hero');
+  // Overlap the hand-off with the end of the swoop: the finished flat map fades in underneath from ~60%,
+  // and the globe fades away from ~80%, so there's never a moment where the picture visibly "switches".
+  const SWOOP = 1400;
+  const revealMap = () => document.body.classList.remove('hero-swoop');
+  const fadeGlobe = () => hero?.classList.add('done');
   const finish = () => {
+    if (introDone) return;
     introDone = true;
-    hero?.classList.add('done'); // canvas fades out while the flat map fades in underneath
-    document.body.classList.remove('hero-swoop');
-    setTimeout(() => { document.body.classList.remove('hero-out'); heroGlobe?.destroy(); heroGlobe = null; hero?.remove(); }, 550);
+    revealMap(); fadeGlobe();
+    setTimeout(() => { document.body.classList.remove('hero-out'); heroGlobe?.destroy(); heroGlobe = null; hero?.remove(); }, 450);
     maybeOfferTour();
   };
   const r = $('#flat').getBoundingClientRect();
-  if (heroGlobe && !REDUCED) heroGlobe.swoop(r, FLAT_VIEW, { duration: 1400, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish });
-  else finish();
+  if (heroGlobe && !REDUCED) {
+    heroGlobe.swoop(r, FLAT_VIEW, { duration: SWOOP, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish });
+    setTimeout(revealMap, SWOOP * 0.6);
+    setTimeout(fadeGlobe, SWOOP * 0.8);
+  } else finish();
 }
 setViewMode('flat', { fly: false });
 if (params.has('nohero')) {
