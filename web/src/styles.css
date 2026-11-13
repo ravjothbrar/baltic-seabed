@@ -776,6 +776,7 @@ body.view-flat .ring { display: none; }
 .flatmap > svg, .flatmap > canvas { position: absolute; inset: 0; display: block; }
 .flatmap > canvas, .flatmap > svg.fl-labels { pointer-events: none; }
 .fl-sea-bg { fill: #0c1822; }
+.flatmap > svg.fl-base { overflow: visible; } /* geography beyond the frame stays drawable while panning */
 .fl-land { fill: #243642; stroke: #5d8aa0; stroke-width: 0.9px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .fl-border { fill: none; stroke: #7590a0; stroke-width: 0.8px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; opacity: 0.75; }
 .fl-grat { fill: none; stroke: rgba(150, 190, 205, 0.07); stroke-width: 1px; vector-effect: non-scaling-stroke; }
