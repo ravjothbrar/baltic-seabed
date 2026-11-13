@@ -6,7 +6,7 @@ const markSeen = () => { try { localStorage.setItem(KEY, 'done'); } catch {} };
 export function createTour(steps, { onEnd } = {}) {
   let i = -1;
   let root = null;
-  let raf = 0;
+  let raf = 0, busy = false;
 
   function el(html) { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild; }
 
@@ -26,17 +26,18 @@ export function createTour(steps, { onEnd } = {}) {
     </div>`);
     document.body.appendChild(root);
     root.querySelector('.tour-skip').onclick = () => end();
-    root.querySelector('.tour-back').onclick = () => go(i - 1);
-    root.querySelector('.tour-next').onclick = () => (i >= steps.length - 1 ? end() : go(i + 1));
-    root.addEventListener('click', (e) => { if (e.target === root) go(i + 1 < steps.length ? i + 1 : i); });
+    root.querySelector('.tour-back').onclick = () => { if (!busy) go(i - 1); };
+    root.querySelector('.tour-next').onclick = () => { if (busy) return; i >= steps.length - 1 ? end() : go(i + 1); };
     window.addEventListener('keydown', onKey, true);
-    window.addEventListener('resize', place);
+    window.addEventListener('resize', onResize);
   }
+  let rz = 0;
+  function onResize() { cancelAnimationFrame(rz); rz = requestAnimationFrame(place); }
   function onKey(e) {
     if (!root) return;
     if (e.key === 'Escape') { e.stopPropagation(); end(); }
-    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); i >= steps.length - 1 ? end() : go(i + 1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); if (!busy) (i >= steps.length - 1 ? end() : go(i + 1)); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); if (!busy) go(i - 1); }
   }
   function target() {
     const s = steps[i];
@@ -82,6 +83,7 @@ export function createTour(steps, { onEnd } = {}) {
     if (n < 0 || n >= steps.length) return;
     i = n;
     const s = steps[i];
+    busy = true;
     root.classList.add('busy');
     root.querySelector('.tour-n').textContent = `STEP ${i + 1} / ${steps.length}`;
     root.querySelector('.tour-bar i').style.width = `${((i + 1) / steps.length) * 100}%`;
@@ -91,8 +93,9 @@ export function createTour(steps, { onEnd } = {}) {
     root.querySelector('.tour-next').textContent = i === steps.length - 1 ? 'Finish ✓' : 'Next →';
     try { await s.before?.(); } catch {}
     await new Promise((res) => setTimeout(res, s.wait ?? 320));
-    if (steps[i] !== s) return;
+    if (steps[i] !== s || !root) return;
     place();
+    busy = false;
     root.classList.remove('busy');
     cancelAnimationFrame(raf);
     const follow = () => { place(); raf = requestAnimationFrame(follow); };
@@ -110,7 +113,7 @@ export function createTour(steps, { onEnd } = {}) {
     cancelAnimationFrame(raf);
     try { steps[i]?.after?.(); } catch {}
     window.removeEventListener('keydown', onKey, true);
-    window.removeEventListener('resize', place);
+    window.removeEventListener('resize', onResize);
     root.classList.remove('on');
     const r = root; root = null; i = -1;
     setTimeout(() => r.remove(), 300);

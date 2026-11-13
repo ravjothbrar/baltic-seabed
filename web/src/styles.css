@@ -666,16 +666,18 @@ body.hero-on #hint { display: none; }
 .tour { position: fixed; inset: 0; z-index: 90; opacity: 0; transition: opacity .3s; }
 .tour.on { opacity: 1; }
 .tour-hole {
-  position: fixed; border-radius: 4px; pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(1, 4, 5, 0.74), 0 0 0 1px var(--mint), 0 0 34px rgba(83, 240, 201, 0.28);
-  transition: left .45s cubic-bezier(.2,.8,.2,1), top .45s cubic-bezier(.2,.8,.2,1), width .45s cubic-bezier(.2,.8,.2,1), height .45s cubic-bezier(.2,.8,.2,1);
+  position: fixed; left: 0; top: 0; border-radius: 4px; pointer-events: none; contain: strict;
+  /* the dim surround is one static shadow; the spotlight jumps (no animated layout), and the step fades instead */
+  box-shadow: 0 0 0 200vmax rgba(1, 4, 5, 0.74), 0 0 0 1px var(--mint);
+  transition: opacity .18s ease;
 }
+.tour.busy .tour-hole { opacity: 0; }
 .tour-card {
   position: fixed; padding: 16px 16px 12px; background: rgba(4, 11, 12, 0.97); border: 1px solid var(--line-3); border-radius: 4px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(83,240,201,.06) inset;
-  transition: left .45s cubic-bezier(.2,.8,.2,1), top .45s cubic-bezier(.2,.8,.2,1), opacity .2s;
+  transition: opacity .18s ease; will-change: opacity;
 }
-.tour.busy .tour-card { opacity: .55; }
+.tour.busy .tour-card { opacity: 0; }
 .tour-k { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--mint); }
 .tour-bar { flex: 1; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .tour-bar i { display: block; height: 100%; width: 0; background: var(--mint); box-shadow: 0 0 8px var(--mint); transition: width .4s; }
