@@ -290,7 +290,6 @@ export function createFlatMap(container) {
   function frame(ts) {
     rafPending = false;
     animT = ts / 1000;
-    if (G) { setTimeout(draw, 120); return; } // mid-gesture: the canvas is a moving image; redraw when it settles
     render();
     // keep animating while something pulses or moves
     if (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents)) setTimeout(draw, 50);
@@ -330,7 +329,7 @@ export function createFlatMap(container) {
         ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.fillStyle = COL.glider;
-      for (const g of gliders) {
+      if (!G) for (const g of gliders) { // drifting chevrons are decoration: skipped mid-gesture
         const a = animT * 0.07 + g.phase;
         const along = Math.cos(a) * 2.4, across = Math.sin(a) * 0.8;
         const dx = (along * Math.cos(g.head) - across * Math.sin(g.head)) * ppk;
@@ -377,7 +376,7 @@ export function createFlatMap(container) {
         }
         ctx.fillStyle = c; ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill();
         if (flagged) { ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke(); }
-        if (v.level && !dim) {
+        if (v.level && !dim && !G) { // pulse rings skipped mid-gesture
           alertCount++;
           ctx.globalAlpha = 0.9 * (1 - ph); ctx.strokeStyle = c; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.arc(X, Y, r + 3 + ph * 14, 0, Math.PI * 2); ctx.stroke();
@@ -416,7 +415,10 @@ export function createFlatMap(container) {
   // canvas layers are moved and scaled as GPU-composited images (CSS transform) and labels are hidden. One full,
   // crisp re-render happens when the gesture settles. Phones can't afford a full SVG + label + canvas redraw per event.
   const baseSvg = svg.node();
-  const fastLayers = [baseSvg, canvas];
+  // Only the SVG geography moves as a composited layer. It has overflow: visible, so geography outside the frame
+  // is already defined and the compositor rasterises newly revealed areas during long drags/zoom-outs (no blank map).
+  // Ships stay on the canvas and are redrawn live each frame (cheap), so they never go missing either.
+  const fastLayers = [baseSvg];
   let G = null;                 // transform at gesture start (null = not gesturing)
   let gestureRaf = 0, settleTimer = 0;
   function applyFast() {
@@ -425,6 +427,7 @@ export function createFlatMap(container) {
     const s = T.k / G.k, tx = T.x - s * G.x, ty = T.y - s * G.y;
     const css = `translate3d(${tx}px, ${ty}px, 0) scale(${s})`;
     for (const el of fastLayers) el.style.transform = css;
+    render();
   }
   function beginGesture() {
     if (G) return;
