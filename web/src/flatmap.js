@@ -199,9 +199,10 @@ export function createFlatMap(container) {
       const [x, y] = P(v.lon, v.lat);
       vessels.set(v.mmsi, { v, x, y });
     }
+    orderCache = null;
     draw();
   }
-  function removeVessels(ids) { for (const id of ids) vessels.delete(id); draw(); }
+  function removeVessels(ids) { for (const id of ids) vessels.delete(id); orderCache = null; draw(); }
   function setFocus(mode) { focus = mode && FOCUS[mode] ? mode : null; draw(); }
   function vColor(v) {
     if (v.level && COL[v.level]) return COL[v.level];
@@ -289,6 +290,7 @@ export function createFlatMap(container) {
   function frame(ts) {
     rafPending = false;
     animT = ts / 1000;
+    if (G) { setTimeout(draw, 120); return; } // mid-gesture: the canvas is a moving image; redraw when it settles
     render();
     // keep animating while something pulses or moves
     if (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents)) setTimeout(draw, 50);
@@ -303,7 +305,7 @@ export function createFlatMap(container) {
     return Math.abs(b[1] - a[1]) * T.k;
   }
 
-  let countDirty = false;
+  let countDirty = false, orderCache = null;
   function render() {
     if (countDirty) { countDirty = false; emitCameraSoon(); }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -356,9 +358,9 @@ export function createFlatMap(container) {
     if (layerVis.vessels) {
       const zoomBoost = Math.min(1.6, 1 + Math.log2(T.k) * 0.12);
       const ph = (animT % 1.6) / 1.6;
-      const list = [...vessels.values()];
-      // draw plain first, flagged on top
-      list.sort((a, b) => (a.v.level ? 2 : a.v.watch ? 1 : 0) - (b.v.level ? 2 : b.v.watch ? 1 : 0));
+      // draw plain first, flagged on top (order cached; rebuilt only when vessels change)
+      if (!orderCache) orderCache = [...vessels.values()].sort((a, b) => (a.v.level ? 2 : a.v.watch ? 1 : 0) - (b.v.level ? 2 : b.v.watch ? 1 : 0));
+      const list = orderCache;
       for (const e of list) {
         const v = e.v; const X = sx(e.x), Y = sy(e.y);
         if (X < -10 || Y < -10 || X > W + 10 || Y > H + 10) continue;
@@ -410,15 +412,49 @@ export function createFlatMap(container) {
   }
 
   // ---------- zoom ----------
+  // Gesture fast path (like Leaflet/Mapbox): while a pan/pinch/wheel/fly is active, the already-drawn SVG and
+  // canvas layers are moved and scaled as GPU-composited images (CSS transform) and labels are hidden. One full,
+  // crisp re-render happens when the gesture settles. Phones can't afford a full SVG + label + canvas redraw per event.
+  const baseSvg = svg.node();
+  const fastLayers = [baseSvg, canvas];
+  let G = null;                 // transform at gesture start (null = not gesturing)
+  let gestureRaf = 0, settleTimer = 0;
+  function applyFast() {
+    gestureRaf = 0;
+    if (!G) return;
+    const s = T.k / G.k, tx = T.x - s * G.x, ty = T.y - s * G.y;
+    const css = `translate3d(${tx}px, ${ty}px, 0) scale(${s})`;
+    for (const el of fastLayers) el.style.transform = css;
+  }
+  function beginGesture() {
+    if (G) return;
+    G = T;
+    for (const el of fastLayers) { el.style.transformOrigin = '0 0'; el.style.willChange = 'transform'; }
+    labelSvg.style('opacity', 0);
+  }
+  function endGesture() {
+    if (!G) return;
+    G = null;
+    gz.attr('transform', T.toString());
+    container.style.setProperty('--k', T.k);
+    for (const el of fastLayers) { el.style.transform = ''; el.style.willChange = ''; }
+    render(); redrawLabels();
+    labelSvg.style('opacity', null);
+    camT = 0; emitCamera();
+  }
   const zoomer = d3zoom().scaleExtent([1, 48])
     .wheelDelta((e) => -e.deltaY * (e.deltaMode === 1 ? 0.05 : e.deltaMode ? 1 : 0.0022) * (e.ctrlKey ? 8 : 1))
+    .on('start', () => { clearTimeout(settleTimer); beginGesture(); })
     .on('zoom', (e) => {
       T = e.transform;
-      gz.attr('transform', T.toString());
-      container.style.setProperty('--k', T.k);
-      redrawLabels(); render();
-      emitCamera();
-    });
+      if (!G) { // programmatic, instant changes (no gesture): just redraw
+        gz.attr('transform', T.toString()); container.style.setProperty('--k', T.k);
+        redrawLabels(); render(); emitCamera(); return;
+      }
+      if (!gestureRaf) gestureRaf = requestAnimationFrame(applyFast);
+    })
+    // wheel gestures emit start/end per tick; wait a moment so a scroll burst is one gesture
+    .on('end', () => { clearTimeout(settleTimer); settleTimer = setTimeout(endGesture, 90); });
   const zsel = select(container).call(zoomer).on('dblclick.zoom', null);
   // keep the browser from page-zooming on trackpad pinch even when d3 is at a scale limit
   container.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
