@@ -116,8 +116,8 @@ because rules like LOITER need 20+ minutes of history. Add `?nohero` to skip the
 
 ### Find and share
 - **Search (⌘K / Ctrl+K or `/`):** ships by name, MMSI or IMO, named cables and pipelines, incidents and places.
-- **Links to one thing:** `?alert=<mmsi>`, `?ship=<mmsi>`, `?asset=<name>` and `?brief=<date>` open straight onto it. Every alert and dossier has a **Copy link** button.
-- **Daily brief and archive:** a one-page summary each morning with a 14-day trend. Past days stay browsable at their own links.
+- **Links to one thing:** `?alert=<mmsi>`, `?ship=<mmsi>`, `?asset=<name>` and `?brief=<date>` open straight onto it. The ship dossier (which every alert opens) has a **Copy link** button, and the URL updates as you click around.
+- **Daily brief and archive:** a one-page summary each morning with a 14-day trend. Step back through past days with the arrows, each at its own link.
 
 ### Alerts outside the site
 - **RSS:** [`data/alerts.xml`](https://ravjothbrar.com/baltic-seabed/data/alerts.xml) and JSON, refreshed every 15 minutes. It works in any reader, Slack or IFTTT.
