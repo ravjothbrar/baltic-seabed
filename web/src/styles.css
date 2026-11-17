@@ -563,8 +563,9 @@ body.hero-out .hero { opacity: 0; pointer-events: none; }
    map is laid out and fully drawn before the swoop: nothing reflows or re-renders at the hand-off. */
 body.hero-on .topbar, body.hero-on .col-left, body.hero-on .col-right, body.hero-on .bottom, body.hero-on .foot,
 body.hero-on .tabs, body.hero-on .legend, body.hero-on .hud, body.hero-on .brk, body.hero-on .sheet { visibility: hidden; }
-body.hero-out .topbar, body.hero-out .col, body.hero-out .bottom, body.hero-out .foot, body.hero-out .tabs, body.hero-out .hud, body.hero-out .legend { animation: rise .7s cubic-bezier(.2,.7,.2,1) .75s both; }
-body.hero-out .col-left { animation-delay: .85s; } body.hero-out .col-right { animation-delay: .9s; } body.hero-out .bottom { animation-delay: 1s; }
+/* the frame rises in during the swoop and settles as it lands (swoop is 1.4 s), so nothing is still moving afterwards */
+body.hero-out .topbar, body.hero-out .col, body.hero-out .bottom, body.hero-out .foot, body.hero-out .tabs, body.hero-out .hud, body.hero-out .legend { animation: rise .7s cubic-bezier(.2,.7,.2,1) .4s both; }
+body.hero-out .col-left { animation-delay: .5s; } body.hero-out .col-right { animation-delay: .55s; } body.hero-out .bottom { animation-delay: .65s; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) {
   .hero { padding: 18px 18px 18px; background: linear-gradient(0deg, rgba(0,0,0,.95) 0%, rgba(0,0,0,.7) 45%, rgba(0,0,0,.1) 75%); }

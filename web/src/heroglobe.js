@@ -12,7 +12,16 @@ const COL = {
   ship: 'rgba(240, 245, 245, 0.9)', listed: '#ff5fd2', alert: '#ffb547', incident: '#ff5a6a',
 };
 // Flat-map colours the swoop blends into, so the cross-fade lands seamlessly.
-const FLAT = { land: [36, 54, 66], ocean: '#0c1822' };
+// Kept in step with flatmap.js COL and the .fl-* styles in styles.css.
+const FLAT = {
+  land: [36, 54, 66], ocean: '#0c1822', coast: [93, 138, 160],
+  telecom: [63, 216, 255], power: [179, 155, 255], pipeline: [255, 181, 71],
+  vessel: [214, 235, 232], vesselSlow: [127, 159, 163], watch: [255, 95, 210],
+  WATCH: [92, 200, 255], ELEVATED: [255, 181, 71], HIGH: [255, 77, 94],
+};
+const GLOBE_RGB = { telecom: [92, 200, 255], power: [169, 139, 255], pipeline: [255, 181, 71], ship: [240, 245, 245], listed: [255, 95, 210], alert: [255, 181, 71], coast: [228, 232, 236] };
+const lerp = (a, b, k) => a + (b - a) * k;
+const mixA = (a, b, k, alpha) => `rgba(${a.map((v, i) => Math.round(lerp(v, b[i], k))).join(',')},${alpha})`;
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const mixRgb = (a, b, k) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
 // deterministic faint star/haze field
@@ -74,34 +83,53 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.16, 0, Math.PI * 2); ctx.fill();
     }
     // ocean (blends to the flat map's flat sea colour as the swoop lands, so the cross-fade is seamless)
-    if (anim && anim.p > 0.55) { ctx.fillStyle = FLAT.ocean; ctx.globalAlpha = Math.min(1, (anim.p - 0.55) / 0.45); }
+    if (anim && anim.p > 0.3) { ctx.fillStyle = FLAT.ocean; ctx.globalAlpha = Math.min(1, (anim.p - 0.3) / 0.55); }
     const og = ctx.createRadialGradient(x - r * 0.25, y - r * 0.35, r * 0.1, x, y, r);
     og.addColorStop(0, COL.ocean0); og.addColorStop(1, COL.ocean1);
     ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = og; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    if (anim && anim.p > 0.55) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    if (anim && anim.p > 0.3) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
     // graticule
     ctx.beginPath(); path(grat); ctx.strokeStyle = COL.grat; ctx.lineWidth = 1; ctx.stroke();
+    // m: how far the picture has turned into the flat map's style. Complete by 85% of the swoop, before the
+    // cross-fade starts, so the globe and the map underneath look identical when they swap.
+    const m = anim ? Math.max(0, Math.min(1, (anim.p - 0.3) / 0.55)) : 0;
     // land
     if (land) {
-      const kb = anim ? Math.max(0, Math.min(1, (anim.p - 0.4) / 0.6)) : 0;
-      ctx.beginPath(); path(land); ctx.fillStyle = kb ? mixRgb(hexRgb(COL.land), FLAT.land, kb) : COL.land; ctx.fill();
-      ctx.strokeStyle = COL.coast; ctx.lineWidth = 0.7; ctx.stroke();
+      ctx.beginPath(); path(land); ctx.fillStyle = m ? mixRgb(hexRgb(COL.land), FLAT.land, m) : COL.land; ctx.fill();
+      ctx.strokeStyle = m ? mixA(GLOBE_RGB.coast, FLAT.coast, m, lerp(0.3, 1, m)) : COL.coast; ctx.lineWidth = lerp(0.7, 0.9, m); ctx.stroke();
       if (landAt == null) { landAt = performance.now(); window.__heroLandAt = landAt; listeners.land.forEach((f) => f()); }
     }
     // cables: a wide faint pass + a thin bright pass reads as glow without shadowBlur
+    // (the glow pass fades out and line weights/colours move to the flat map's: 1.15 px at 0.55, named 2.3 px at 0.95)
     for (const [kind, a1, a2] of [['telecom', 0.16, 0.75], ['power', 0.14, 0.7], ['pipeline', 0.14, 0.7]]) {
       const set = cables.filter((c) => c.kind === kind); if (!set.length) continue;
+      const col = (alpha) => (m ? mixA(GLOBE_RGB[kind], FLAT[kind], m, alpha) : COL[kind] + alpha + ')');
       ctx.beginPath(); for (const c of set) path(c.geom);
-      ctx.strokeStyle = COL[kind] + a1 + ')'; ctx.lineWidth = 3; ctx.stroke();
-      ctx.strokeStyle = COL[kind] + a2 + ')'; ctx.lineWidth = 0.8; ctx.stroke();
+      if (m < 1) { ctx.strokeStyle = col(a1 * (1 - m)); ctx.lineWidth = 3; ctx.stroke(); }
+      ctx.strokeStyle = col(lerp(a2, 0.55, m)); ctx.lineWidth = lerp(0.8, 1.15, m); ctx.stroke();
+      if (m > 0) {
+        const named = set.filter((c) => c.named); if (!named.length) continue;
+        ctx.beginPath(); for (const c of named) path(c.geom);
+        ctx.strokeStyle = col(0.95 * m); ctx.lineWidth = lerp(0.8, 2.3, m); ctx.stroke();
+      }
     }
     // ships + incidents (only on the visible hemisphere)
     const vis = (lon, lat) => { const p = proj([lon, lat]); if (!p) return null; const d = Math.hypot(p[0] - x, p[1] - y); return d <= r ? p : null; };
     const sz = Math.max(1, Math.min(2.4, r / 420));
-    for (const s of ships) {
-      const p = vis(s.lon, s.lat); if (!p) continue;
-      ctx.fillStyle = s.level ? COL.alert : s.watch ? COL.listed : COL.ship;
-      ctx.beginPath(); ctx.arc(p[0], p[1], s.level || s.watch ? sz * 1.4 : sz, 0, Math.PI * 2); ctx.fill();
+    // ships move to the flat map's colours, sizes and speed-based opacity, drawn plain first and flagged on top like it
+    const flatOf = (s) => (s.level && FLAT[s.level] ? FLAT[s.level] : s.watch ? FLAT.watch : (s.sog || 0) > 0.6 ? FLAT.vessel : FLAT.vesselSlow);
+    for (const pass of m ? [0, 1, 2] : [-1]) {
+      for (const s of ships) {
+        const rank = s.level ? 2 : s.watch ? 1 : 0;
+        if (pass >= 0 && rank !== pass) continue;
+        const p = vis(s.lon, s.lat); if (!p) continue;
+        const g = s.level ? GLOBE_RGB.alert : s.watch ? GLOBE_RGB.listed : GLOBE_RGB.ship;
+        const flagged = rank > 0;
+        const a = lerp(0.9, flagged ? 1 : (s.sog || 0) > 0.6 ? 0.85 : 0.6, m);
+        ctx.fillStyle = mixA(g, flatOf(s), m, a);
+        const r0 = flagged ? sz * 1.4 : sz, r1 = s.level ? 4.2 : s.watch ? 3.4 : 2.1;
+        ctx.beginPath(); ctx.arc(p[0], p[1], lerp(r0, r1, m), 0, Math.PI * 2); ctx.fill();
+      }
     }
     ctx.strokeStyle = COL.incident; ctx.lineWidth = 1.2;
     for (const i of incidents) {
@@ -178,7 +206,7 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
   }
 
   function setInfra(features) {
-    cables = features.map((f) => ({ kind: f.properties.kind, geom: f.geometry })).filter((c) => c.kind === 'telecom' || c.kind === 'power' || c.kind === 'pipeline');
+    cables = features.map((f) => ({ kind: f.properties.kind, named: !!f.properties.named, geom: f.geometry })).filter((c) => c.kind === 'telecom' || c.kind === 'power' || c.kind === 'pipeline');
     if (!raf) draw();
   }
   function setFocusShips(list) { focus = list.slice(0, 8).map((v) => ({ lon: v.lon, lat: v.lat })); }
