@@ -86,7 +86,14 @@ app.get('/api/stream', (req, res) => {
   res.flushHeaders(); res.write('retry: 3000\n\n'); clients.add(res);
   req.on('close', () => clients.delete(res));
 });
-app.get('/healthz', (_req, res) => res.json({ ok: true, vessels: engine.snapshot().vessels.length }));
+const STARTED = Date.now();
+const health = (_req, res) => {
+  const f = engine.feedsOut();
+  res.json({ ok: !!f.digitraffic?.ok, uptimeS: Math.round((Date.now() - STARTED) / 1000), vessels: engine.snapshot().vessels.length,
+    alerts: engine.alerts.size, feeds: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, { ok: !!v.ok, last: v.last ?? null }])) });
+};
+app.get('/api/health', health);
+app.get('/healthz', health);
 const dist = path.join(ROOT, 'web/dist');
 if (existsSync(dist)) app.use(express.static(dist, { maxAge: '1h', index: 'index.html' }));
 app.use('/data', express.static(path.join(ROOT, 'web/public/data'), { maxAge: '1h' }));

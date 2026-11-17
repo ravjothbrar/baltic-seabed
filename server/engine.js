@@ -3,9 +3,10 @@
 import { evaluate, SIGNAL_INFO, T } from './detect.js';
 import { typeLabel, flagOf } from './ais-meta.js';
 import { distNm, inBaltic } from './geo.js';
+import CONFIG from '../config/seabed.config.js';
 
-export const TRACK_MS = 6 * 3600e3;
-export const DROP_MS = 8 * 3600e3;
+export const TRACK_MS = CONFIG.trackHours * 3600e3;
+export const DROP_MS = CONFIG.dropAfterHours * 3600e3;
 const DT = 'https://meri.digitraffic.fi/api/ais/v1';
 
 /**

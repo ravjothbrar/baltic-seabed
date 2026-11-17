@@ -2,15 +2,14 @@
 // Replays history.json through the same engine the site uses, then summarises the current picture.
 // Regenerated at most once a day; keeps a 14-day trend by extending the previously published brief.
 //   node scripts/build-brief.mjs <history.json> <out.json> [sar.json]   env: PREV_URL
-import { readFile, writeFile } from 'node:fs/promises';
-import { loadCorridors } from '../server/load.js';
-import { createEngine, TRACK_MS } from '../server/engine.js';
+import { writeFile } from 'node:fs/promises';
+import { replay, readJSON, fetchJSON } from './replay.mjs';
+import { TRACK_MS } from '../server/engine.js';
 
 const [HIST, OUT, SAR] = process.argv.slice(2);
-const read = async (p) => { try { return JSON.parse(await readFile(p, 'utf8')); } catch { return null; } };
+const read = readJSON;
 
-let prev = null;
-if (process.env.PREV_URL) { try { const r = await fetch(process.env.PREV_URL, { cache: 'no-store' }); if (r.ok) prev = await r.json(); } catch {} }
+const prev = await fetchJSON(process.env.PREV_URL);
 const utcDay = (d) => new Date(d).toISOString().slice(0, 10);
 if (prev && utcDay(prev.generated) === utcDay(Date.now()) && !process.env.FORCE) {
   await writeFile(OUT, JSON.stringify(prev)); console.log(`brief: today's brief already exists (${prev.generated}), reused`); process.exit(0);
@@ -19,15 +18,7 @@ if (prev && utcDay(prev.generated) === utcDay(Date.now()) && !process.env.FORCE)
 const history = await read(HIST);
 if (!history?.tracks) { console.log('brief: no history yet'); if (prev) await writeFile(OUT, JSON.stringify(prev)); process.exit(0); }
 
-const corridors = loadCorridors('web/public/data/infra.geojson', 'web/public/data/anchorages.geojson');
-const watchlist = (await read('server/data/watchlist.json')) || undefined;
-const engine = createEngine({ corridors, watchlist, emit: () => {}, mode: 'brief' });
-const cutoff = Date.now() - TRACK_MS;
-for (const [mmsi, m] of Object.entries(history.meta || {})) engine.onStatic(+mmsi, { name: m[0], imo: m[1], type: m[2], dest: m[3] });
-for (const [mmsi, rows] of Object.entries(history.tracks)) engine.seedTrack(+mmsi, rows.filter((r) => r[2] * 1000 > cutoff).map((r) => [r[0], r[1], r[2] * 1000, r[3], r[4], r[5]]));
-await engine.refreshWeather().catch(() => {});
-engine.sweep();
-const snap = engine.snapshot();
+const { engine, snap, cutoff } = await replay(history);
 // "Vessels seen" = distinct ships with at least one fix inside the window (not just those reporting in the last 30 min).
 const seen = new Set(), seenListed = new Set();
 for (const [mmsi, rows] of Object.entries(history.tracks)) {

@@ -109,6 +109,7 @@ flowchart LR
   subgraph Actions["GitHub Actions"]
     H[history.json<br/>every 15 min]
     BR[brief.json<br/>daily]
+    AL[alerts.xml · Discord<br/>every 15 min]
     S[cables · watchlist<br/>weekly]
   end
   subgraph Browser["Your browser"]
@@ -124,6 +125,7 @@ flowchart LR
   F --> BR
   EN --> R --> UI
   H --> BR --> UI
+  H --> AL
   classDef src fill:#0d1a20,stroke:#53f0c9,color:#cfe9e6
 ```
 
@@ -155,6 +157,9 @@ flowchart LR
 
 ## Run it yourself
 
+**Zero keys needed.** With nothing configured it runs on Digitraffic's open, live AIS (northern Baltic) and the cable,
+pipeline, sanctions and incident data committed to this repo. Two commands, Node 22+:
+
 ```bash
 npm install && npm --prefix web install
 ```
@@ -164,20 +169,49 @@ npm run build && npm start
 ```
 
 Open http://localhost:8787. Add `?nohero` to skip the intro, or `?tour` to replay the guided tour.
+If anything looks off, run the diagnostics. They check Node, data files, every source and every key, and tell you how to fix whatever is missing:
+
+```bash
+npm run diag
+```
+
+### Optional keys
+
+All free. Set them as environment variables locally (see [`.env.example`](.env.example)) or as **GitHub Actions secrets** for the hosted site.
+None of them ever reaches the browser.
+
+| Secret | Unlocks | How to get it |
+|---|---|---|
+| `AISSTREAM_API_KEY` | Whole-Baltic ships (not just the north) | [aisstream.io](https://aisstream.io) → sign in with GitHub → API Keys · ~1 min |
+| `GFW_API_TOKEN` | Satellite-radar detections of ships not on AIS | [globalfishingwatch.org](https://globalfishingwatch.org/our-apis/) → request access (non-commercial) · ~1–2 days |
+| `DISCORD_WEBHOOK_URL` | Push FLASH / PRIORITY alerts to a Discord channel | Channel → Edit → Integrations → Webhooks → New · ~1 min |
+
+### Alerts outside the site
+
+Every 15 minutes the Pages job publishes the current alerts as an **RSS feed** ([`data/alerts.xml`](https://ravjothbrar.com/baltic-seabed/data/alerts.xml))
+and JSON. With a Discord webhook set, it also pushes **FLASH** (HIGH) and **PRIORITY** (ELEVATED) alerts. Each push carries
+its evidence and "why it may be nothing", with per-ship cooldowns and an hourly cap so a busy night can't flood the channel.
+
+### Tuning and testing
+
+Every threshold (corridor width, loiter time, drag speed band, AIS-gap rules, alert cooldowns) lives in one file,
+[`config/seabed.config.js`](config/seabed.config.js), shared by the browser and the server. Change a value, then:
 
 ```bash
 npm run eval
 ```
 
-That runs the detection test cases and the regression checks. Deployment (free GitHub Pages, or optional Fly.io) is covered in [`.github/workflows`](.github/workflows).
+That replays the synthetic cases and regression checks through the rules. Each data source can be refreshed on its own
+(`npm run fetch:static`, `npm run fetch:watchlist`), and a running server reports its state at `/api/health`.
 
 <details>
 <summary><b>Repository layout</b></summary>
 
 ```
+config/   seabed.config.js: every threshold and alert tier in one place
 server/   engine.js (live picture, shared with the browser) · detect.js (rules) · corridors.js · index.js (optional Node server)
 web/      Vite front end: flatmap.js (d3 map) · heroglobe.js (intro) · globe.js (3D mode) · tour.js · brief.js · how.html
-scripts/  data builders: cables, watchlist, history, brief, satellite radar, bathymetry
+scripts/  data builders (cables, watchlist, history, brief, alerts, satellite radar, bathymetry) · diag.mjs · replay.mjs
 eval/     synthetic cases + regression tests for the rules
 docs/     data contract, screenshots
 ```

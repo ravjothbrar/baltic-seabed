@@ -1,8 +1,9 @@
 // Spatial index over infrastructure segments + port zones. O(1)-ish point queries. Pure: works in Node and browser.
 import { pointSegNm, distNm } from './geo.js';
+import CONFIG from '../config/seabed.config.js';
 
 const CELL = 0.05;
-export const CORRIDOR_NM = 1.5;
+export const CORRIDOR_NM = CONFIG.corridorNm;
 const key = (x, y) => `${x},${y}`;
 
 export function buildCorridors(infra, anchorages) {

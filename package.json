@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Live OSINT globe for Baltic undersea cables and pipelines",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "NODE_USE_ENV_PROXY=1 node --no-warnings server/index.js",
     "server": "NODE_USE_ENV_PROXY=1 node --no-warnings --watch server/index.js",
@@ -12,7 +14,8 @@
     "build": "npm --prefix web install && npm --prefix web run build",
     "fetch:static": "NODE_USE_ENV_PROXY=1 node scripts/fetch-static.mjs",
     "fetch:watchlist": "NODE_USE_ENV_PROXY=1 node scripts/fetch-watchlist.mjs",
-    "eval": "node --no-warnings eval/run-eval.mjs && node --no-warnings eval/regressions.mjs"
+    "eval": "node --no-warnings eval/run-eval.mjs && node --no-warnings eval/regressions.mjs",
+    "diag": "NODE_USE_ENV_PROXY=1 node --no-warnings scripts/diag.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",
