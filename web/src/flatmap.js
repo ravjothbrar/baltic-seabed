@@ -608,6 +608,8 @@ export function createFlatMap(container) {
     setReserved: (f) => { reserved = f; },
     setLite: (on) => { lite = !!on; draw(); },
     getFocus: () => focus,
+    // where a lon/lat point is drawn, in px relative to the map container (current zoom)
+    toScreen: (lon, lat) => { const q = projection([lon, lat]); return [T.applyX(q[0]), T.applyY(q[1])]; },
     resize: () => { fit(); zsel.call(zoomer.transform, T); },
     redraw: () => { redrawLabels(); render(); },
     vesselCount: () => vessels.size,

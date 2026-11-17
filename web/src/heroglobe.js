@@ -2,7 +2,7 @@
 // Land comes from a ~50 KB file (geo/hero-land.json), preloaded in index.html, so it draws within a few hundred ms.
 // It shows the same live layers as the dashboard (cables, ships, incidents), then swoops onto the Baltic and hands off
 // to the flat Mercator map, framing the same box so the cross-fade reads as one continuous zoom.
-import { geoOrthographic, geoPath, geoGraticule10, geoArea, geoInterpolate } from 'd3-geo';
+import { geoOrthographic, geoPath, geoGraticule10, geoArea, geoInterpolate, geoProjection, geoRotation } from 'd3-geo';
 
 const CENTER = [20.4, 58.6]; // Baltic
 // Near-monochrome (Clarity-style smoky greys); the live Baltic data is the one point of colour.
@@ -32,6 +32,22 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
   const ctx = canvas.getContext('2d');
   const proj = geoOrthographic().clipAngle(90).precision(0.4);
   const path = geoPath(proj, ctx);
+  // End-of-swoop morph: every point is placed part-way between where the globe (orthographic) puts it and where the
+  // flat map (Mercator, at its final zoom) will draw it, so the globe lands pixel-for-pixel on the map underneath.
+  let morph = null; // { to: (lon, lat) => [x, y] canvas px, w: 0..1 }
+  const DEG = 180 / Math.PI;
+  let mrot = geoRotation([0, 0, 0]);
+  const mraw = (l, f) => {
+    const [tx, ty] = proj.translate(), R = proj.scale();
+    const ox = tx + R * Math.cos(f) * Math.sin(l), oy = ty - R * Math.sin(f);
+    if (!morph) return [ox, -oy]; // d3 calls this while building the projection, before any morph exists
+    const q = morph.to(...mrot.invert([l * DEG, f * DEG]));
+    const w = morph.w;
+    return [ox + (q[0] - ox) * w, -(oy + (q[1] - oy) * w)];
+  };
+  // d3 re-centres a projection on raw(0, 0); translating to that same point cancels it, so output = screen px.
+  const mproj = geoProjection(mraw).clipAngle(90).scale(1).translate([0, 0]).precision(0.4);
+  const mpath = geoPath(mproj, ctx);
   const grat = geoGraticule10();
   let W = 0, H = 0, DPR = 1;
   let land = null, cables = [], ships = [], incidents = [], focus = [];
@@ -67,6 +83,9 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
     ctx.restore();
   }
   function drawScene() {
+    const mOn = !!(morph && morph.w > 0);
+    if (mOn) { mrot = geoRotation(proj.rotate()); mproj.rotate(proj.rotate()); const c0 = mraw(0, 0); mproj.translate([c0[0], -c0[1]]); }
+    const pth = mOn ? mpath : path;
     const [x, y] = proj.translate(), r = proj.scale();
     // atmosphere: soft outer limb glow
     const fade = anim ? Math.max(0, 1 - anim.p * 1.6) : 1;
@@ -89,13 +108,13 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
     ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = og; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     if (anim && anim.p > 0.3) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
     // graticule
-    ctx.beginPath(); path(grat); ctx.strokeStyle = COL.grat; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); pth(grat); ctx.strokeStyle = COL.grat; ctx.lineWidth = 1; ctx.stroke();
     // m: how far the picture has turned into the flat map's style. Complete by 85% of the swoop, before the
     // cross-fade starts, so the globe and the map underneath look identical when they swap.
-    const m = anim ? Math.max(0, Math.min(1, (anim.p - 0.3) / 0.55)) : 0;
+    const m = anim ? Math.max(0, Math.min(1, (anim.p - 0.3) / 0.5)) : 0;
     // land
     if (land) {
-      ctx.beginPath(); path(land); ctx.fillStyle = m ? mixRgb(hexRgb(COL.land), FLAT.land, m) : COL.land; ctx.fill();
+      ctx.beginPath(); pth(land); ctx.fillStyle = m ? mixRgb(hexRgb(COL.land), FLAT.land, m) : COL.land; ctx.fill();
       ctx.strokeStyle = m ? mixA(GLOBE_RGB.coast, FLAT.coast, m, lerp(0.3, 1, m)) : COL.coast; ctx.lineWidth = lerp(0.7, 0.9, m); ctx.stroke();
       if (landAt == null) { landAt = performance.now(); window.__heroLandAt = landAt; listeners.land.forEach((f) => f()); }
     }
@@ -104,17 +123,17 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
     for (const [kind, a1, a2] of [['telecom', 0.16, 0.75], ['power', 0.14, 0.7], ['pipeline', 0.14, 0.7]]) {
       const set = cables.filter((c) => c.kind === kind); if (!set.length) continue;
       const col = (alpha) => (m ? mixA(GLOBE_RGB[kind], FLAT[kind], m, alpha) : COL[kind] + alpha + ')');
-      ctx.beginPath(); for (const c of set) path(c.geom);
+      ctx.beginPath(); for (const c of set) pth(c.geom);
       if (m < 1) { ctx.strokeStyle = col(a1 * (1 - m)); ctx.lineWidth = 3; ctx.stroke(); }
       ctx.strokeStyle = col(lerp(a2, 0.55, m)); ctx.lineWidth = lerp(0.8, 1.15, m); ctx.stroke();
       if (m > 0) {
         const named = set.filter((c) => c.named); if (!named.length) continue;
-        ctx.beginPath(); for (const c of named) path(c.geom);
+        ctx.beginPath(); for (const c of named) pth(c.geom);
         ctx.strokeStyle = col(0.95 * m); ctx.lineWidth = lerp(0.8, 2.3, m); ctx.stroke();
       }
     }
     // ships + incidents (only on the visible hemisphere)
-    const vis = (lon, lat) => { const p = proj([lon, lat]); if (!p) return null; const d = Math.hypot(p[0] - x, p[1] - y); return d <= r ? p : null; };
+    const vis = (lon, lat) => { const p = proj([lon, lat]); if (!p) return null; const d = Math.hypot(p[0] - x, p[1] - y); return d <= r ? (mOn ? mproj([lon, lat]) : p) : null; };
     const sz = Math.max(1, Math.min(2.4, r / 420));
     // ships move to the flat map's colours, sizes and speed-based opacity, drawn plain first and flagged on top like it
     const flatOf = (s) => (s.level && FLAT[s.level] ? FLAT[s.level] : s.watch ? FLAT.watch : (s.sog || 0) > 0.6 ? FLAT.vessel : FLAT.vesselSlow);
@@ -176,8 +195,9 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
       const b = { x: anim.from.x + (anim.to.x - anim.from.x) * k, y: anim.from.y + (anim.to.y - anim.from.y) * k, r: anim.from.r * Math.pow(anim.to.r / anim.from.r, k) };
       const c = anim.interp(k);
       apply(b, [-c[0], -c[1], 0]);
+      if (anim.to.flat) { const u = Math.max(0, Math.min(1, (anim.p - 0.45) / 0.35)); morph = { to: anim.to.flat, w: u * u * (3 - 2 * u) }; }
       draw();
-      if (anim.p >= 1) { const done = anim.done; anim = null; done?.(); return; }
+      if (anim.p >= 1) { const done = anim.done; anim = null; done?.(); return; } // (morph stays at w=1: the last frame matches the map)
     } else if (!still) {
       drift += dt / 1000;
       rot = [-CENTER[0] - Math.sin(drift * 0.12) * 6, -CENTER[1] + Math.sin(drift * 0.07) * 1.5, 0]; // slow sway, Baltic stays in view
@@ -187,7 +207,7 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
   }
 
   /** Swoop into `rect` (viewport px) so that lon/lat `box` fills it like the flat map's initial view. */
-  function swoop(rect, box, { duration = 1400, pad = 0, clip = false, done } = {}) {
+  function swoop(rect, box, { duration = 1400, pad = 0, clip = false, done, toScreen = null } = {}) {
     if (raf) cancelAnimationFrame(raf), (raf = 0);
     const c = [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2];
     const tmp = geoOrthographic().clipAngle(90).rotate([-c[0], -c[1], 0]);
@@ -197,6 +217,8 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
     const [tx, ty] = tmp.translate();
     // the projection of the centre is the frame point the box centre lands on
     const target = { x: tx, y: ty, r: tmp.scale() };
+    // toScreen(lon, lat) → viewport px where the flat map draws that point; converted to canvas px for the morph
+    if (toScreen) target.flat = (lon, lat) => { const q = toScreen(lon, lat); return [q[0] - cr.left, q[1] - cr.top]; };
     const from = { x: proj.translate()[0], y: proj.translate()[1], r: proj.scale() };
     const fromC = [-proj.rotate()[0], -proj.rotate()[1]];
     if (reduced || duration <= 0) { apply(target, [-c[0], -c[1], 0]); draw(); done?.(); return; }

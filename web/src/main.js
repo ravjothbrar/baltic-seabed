@@ -1410,7 +1410,8 @@ function exitHero() {
   };
   const r = $('#flat').getBoundingClientRect();
   if (heroGlobe && !REDUCED && !LITE) {
-    heroGlobe.swoop(r, FLAT_VIEW, { duration: SWOOP, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish });
+    heroGlobe.swoop(r, FLAT_VIEW, { duration: SWOOP, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish,
+      toScreen: (lon, lat) => { const q = flat.toScreen(lon, lat); return [q[0] + r.left, q[1] + r.top]; } });
     setTimeout(revealMap, SWOOP * 0.6);
     setTimeout(fadeGlobe, SWOOP * 0.8);
   } else finish();
