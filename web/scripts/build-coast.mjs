@@ -71,6 +71,22 @@ function clipRing(ring, [x0, y0, x1, y1]) { // Sutherland–Hodgman against an a
   }
   return pts;
 }
+// Natural Earth rings that cross the antimeridian jump from +180 to -180. Clipping that jump against the box's west
+// edge invents a long fake edge (it turned the Norwegian Sea into land). Unwrap longitudes so the ring is continuous,
+// then clip at whichever 360° shift puts it over the box.
+function clipUnwrapped(ring, box) {
+  const u = []; let off = 0;
+  for (let i = 0; i < ring.length; i++) {
+    if (i) { const d = ring[i][0] - ring[i - 1][0]; if (d > 180) off -= 360; else if (d < -180) off += 360; }
+    u.push([ring[i][0] + off, ring[i][1]]);
+  }
+  for (const k of [0, -360, 360]) {
+    const s = k ? u.map(([x, y]) => [x + k, y]) : u;
+    if (Math.max(...s.map((p) => p[0])) < box[0] || Math.min(...s.map((p) => p[0])) > box[2]) continue;
+    const c = clipRing(s, box); if (c.length >= 3) return c;
+  }
+  return [];
+}
 const ringArea = (r) => { let s = 0; for (let i = 0; i < r.length; i++) { const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % r.length]; s += x1 * y2 - x2 * y1; } return Math.abs(s) / 2; };
 function polys(topoObj, obj) {
   const g = topo.feature(topoObj, obj);
@@ -96,7 +112,7 @@ const regionPolys = [];
 for (const p of polys(l10, l10.objects.land)) {
   const rings = [];
   for (const [i, ring] of p.entries()) {
-    const c = clipRing(ring.slice(0, -1), LAND_BOX);
+    const c = clipUnwrapped(ring.slice(0, -1), LAND_BOX);
     if (c.length < 3 || ringArea(c) < (i === 0 ? 0.0006 : 0.004)) { if (i === 0) break; continue; }
     const pr = packRing([...c, c[0]], 0.0012, 4); if (pr) rings.push(pr); else if (i === 0) break;
   }
