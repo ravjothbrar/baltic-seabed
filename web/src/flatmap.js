@@ -77,7 +77,7 @@ export function createFlatMap(container) {
   // ---------- data ----------
   let land = null, landW = null, landBox = null, borders = null;
   const infra = []; // {kind, name, named, pts:[[x,y]...] base projected}
-  const vessels = new Map(); // mmsi -> {v, x, y}
+  const vessels = new Map(); // mmsi -> {v, x, y (drawn), fx, fy (last fix), ux, uy (base units/s), ts, bx, by, bt (glide start)}
   let incidents = []; // {inc, x, y}
   let track = null, trackLevel = null;
   let gliders = [], gliderR = 8, tasking = null;
@@ -114,7 +114,7 @@ export function createFlatMap(container) {
     if (borders) gz.select('.fl-border').attr('d', path(borders));
     for (const l of infra) l.pts = l.coords.map(([x, y]) => P(x, y));
     gInfra.selectAll('path.fl-line').attr('d', (l) => 'M' + l.pts.map((p) => p.join(',')).join('L'));
-    for (const e of vessels.values()) [e.x, e.y] = P(e.v.lon, e.v.lat);
+    for (const e of vessels.values()) { fixOf(e); e.bt = 0; placeAt(e, Date.now()); }
     for (const i of incidents) [i.x, i.y] = P(i.inc.lon, i.inc.lat);
     for (const g of gliders) [g.x, g.y] = P(g.lon, g.lat);
     for (const l of placeLabels) [l.x, l.y] = P(l.lon, l.lat);
@@ -192,12 +192,54 @@ export function createFlatMap(container) {
   let incLabels = [];
 
   // ---------- vessels ----------
+  // Smooth motion: each ship glides from where it is drawn to its new fix (GLIDE_MS), then dead-reckons along its
+  // reported course and speed for at most DR_MAX_S after the fix time. Moored or slow ships (< 0.5 kn) never move,
+  // and implausible speeds (> 40 kn, usually bad AIS) are not extrapolated. Lite mode snaps to the fix.
+  const GLIDE_MS = 1100, DR_MAX_S = 120, DR_MIN_KN = 0.5, DR_MAX_KN = 40;
+  let moving = 0, gliding = 0;
+  function fixOf(e) {
+    const v = e.v;
+    [e.fx, e.fy] = P(v.lon, v.lat);
+    e.ts = typeof v.ts === 'number' ? v.ts : Date.now();
+    e.ux = e.uy = 0;
+    const sog = v.sog, cog = v.cog;
+    if (typeof sog === 'number' && sog >= DR_MIN_KN && sog <= DR_MAX_KN && typeof cog === 'number' && cog < 360) {
+      const r = (cog * Math.PI) / 180, cl = Math.cos((v.lat * Math.PI) / 180) || 1e-6;
+      const [ax, ay] = P(v.lon + Math.sin(r) / (60 * cl), v.lat + Math.cos(r) / 60); // 1 nm ahead
+      e.ux = ((ax - e.fx) * sog) / 3600; e.uy = ((ay - e.fy) * sog) / 3600; // base units per second
+    }
+  }
+  // Sets e.x/e.y to where the ship is drawn at `now`; returns 2 while gliding, 1 while dead-reckoning, 0 if still.
+  function placeAt(e, now) {
+    let tx = e.fx, ty = e.fy, st = 0;
+    if (!lite && (e.ux || e.uy)) {
+      const dt = (now - e.ts) / 1000;
+      const c = Math.min(DR_MAX_S, Math.max(0, dt));
+      tx += e.ux * c; ty += e.uy * c;
+      if (dt < DR_MAX_S) st = 1;
+    }
+    if (e.bt) {
+      const k = lite ? 1 : (now - e.bt) / GLIDE_MS;
+      if (k < 1) { const q = k * k * (3 - 2 * k); tx = e.bx + (tx - e.bx) * q; ty = e.by + (ty - e.by) * q; st = 2; } else e.bt = 0;
+    }
+    e.x = tx; e.y = ty;
+    return st;
+  }
   function upsertVessels(list) {
     countDirty = true;
+    const now = Date.now();
     for (const v of list) {
       if (typeof v.lat !== 'number' || typeof v.lon !== 'number') continue;
-      const [x, y] = P(v.lon, v.lat);
-      vessels.set(v.mmsi, { v, x, y });
+      const old = vessels.get(v.mmsi);
+      const e = old || { v, x: 0, y: 0, bt: 0 };
+      if (old && !lite) { placeAt(old, now); e.bx = old.x; e.by = old.y; }
+      e.v = v;
+      fixOf(e);
+      // glide only for a real but short move (a jump of more than ~25 km is a re-acquired ship: snap)
+      const far = old && Math.hypot(e.fx - e.bx, e.fy - e.by) > Math.abs(P(20, 60)[1] - P(20, 60.225)[1]);
+      e.bt = old && !lite && !far ? now : 0;
+      placeAt(e, now);
+      if (!old) vessels.set(v.mmsi, e);
     }
     orderCache = null;
     draw();
@@ -293,7 +335,10 @@ export function createFlatMap(container) {
     render();
     // keep animating while something pulses or moves
     // Lite: everything is static, so frames are only drawn on demand (data, pan, zoom)
-    if (!lite && (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents))) setTimeout(draw, 50);
+    if (lite || !layerVis.vessels) gliding = moving = 0;
+    if (gliding) setTimeout(draw, 33); // ~30 fps is plenty for a 1 s glide
+    else if (!lite && (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents))) setTimeout(draw, 50);
+    else if (moving && T.k >= 3) setTimeout(draw, 100);
   }
   let alertCount = 0;
   const hasAlerts = () => alertCount > 0 && layerVis.vessels;
@@ -308,6 +353,8 @@ export function createFlatMap(container) {
   let countDirty = false, orderCache = null;
   function render() {
     if (countDirty) { countDirty = false; emitCameraSoon(); }
+    { const now = Date.now(); moving = 0; gliding = 0;
+      for (const e of vessels.values()) { const st = placeAt(e, now); if (st === 2) gliding++; else if (st === 1) moving++; } }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.clearRect(0, 0, W, H);
     // satellite radar detections with no AIS match: hollow amber squares sized by count
@@ -560,6 +607,7 @@ export function createFlatMap(container) {
     resize: () => { fit(); zsel.call(zoomer.transform, T); },
     redraw: () => { redrawLabels(); render(); },
     vesselCount: () => vessels.size,
+    motionStats: () => ({ moving, gliding, n: vessels.size }),
     getVessel: (mmsi) => vessels.get(mmsi)?.v,
     get k() { return T.k; },
     on: (ev, f) => listeners[ev].push(f),

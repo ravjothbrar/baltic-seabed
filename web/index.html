@@ -28,7 +28,7 @@
   <link rel="preload" href="geo/hero-land.json" as="fetch" crossorigin="anonymous" fetchpriority="high" />
   <script>
     // decide intro vs. straight-to-dashboard before first paint
-    (function () { var q = location.search; if (/[?&]nohero\b/.test(q)) document.documentElement.classList.add('nohero'); if (/[?&]hold\b/.test(q)) document.documentElement.classList.add('hold'); })();
+    (function () { var q = location.search; if (/[?&](nohero|alert|ship|asset|brief)\b/.test(q) || /^#(alert|ship|asset)=/.test(location.hash)) document.documentElement.classList.add('nohero'); if (/[?&]hold\b/.test(q)) document.documentElement.classList.add('hold'); })();
   </script>
   <style>
     /* ── landing: critical CSS, paints with the HTML ───────────────────────── */
@@ -178,12 +178,13 @@
       var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
       var letters = word.querySelectorAll('span > span');
       for (var i = 0; i < letters.length; i++) letters[i].style.animationDelay = (0.06 + i * 0.055) + 's';
-      function fit() {
+      function fit(cap) {
         var W = innerWidth, H = innerHeight, mob = W < 900;
         word.style.fontSize = '100px';
         var w = word.getBoundingClientRect().width || 1;
         var fs = 100 * (W + 0.04 * 100) / w;              // fill the width edge to edge
         fs = Math.min(fs, H * (mob ? 0.42 : 0.62));         // keep room above it on short screens
+        if (cap) fs = Math.min(fs, cap);
         word.style.fontSize = fs + 'px';
         var top = H - fs * (0.8 - 0.135) - fs * 0.04;       // visible top of the caps
         var subH = sub.getBoundingClientRect().height;
@@ -211,9 +212,15 @@
           if (boot) { boot.style.height = rows * lh + 'px'; boot.dataset.max = rows * cols; }
         }
         if (boot) boot.style.marginTop = rows ? '' : '0';
+        // short desktop screens (e.g. 1280×720): if the column still runs into the stats row, shrink the word until it fits
+        if (!mob && !cap) {
+          var over = col.getBoundingClientRect().bottom + 18 - sTop;
+          if (over > 0) fit(fs - over / 0.75 - 4);
+        }
       }
-      fit(); addEventListener('resize', fit);
-      if (document.fonts) { document.fonts.load('900 100px "BSW Display"').then(fit); document.fonts.ready.then(fit); }
+      var refit = function () { fit(); };
+      fit(); addEventListener('resize', refit);
+      if (document.fonts) { document.fonts.load('900 100px "BSW Display"').then(refit); document.fonts.ready.then(refit); }
       // scramble-in for the subtitle
       var txt = sub.textContent, chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/·';
       if (!reduce) {

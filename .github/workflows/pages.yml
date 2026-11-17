@@ -55,6 +55,10 @@ jobs:
         run: node --no-warnings scripts/build-brief.mjs web/dist/data/history.json web/dist/data/brief.json web/dist/data/sar.json
         env:
           PREV_URL: ${{ steps.pages.outputs.base_url }}/data/brief.json
+      - name: Brief archive (carries earlier days forward from the published site)
+        run: node --no-warnings scripts/archive-brief.mjs web/dist/data/brief.json web/dist/data
+        env:
+          PREV_BASE: ${{ steps.pages.outputs.base_url }}/data/
       - name: Alerts feed (RSS + JSON; Discord pushes if DISCORD_WEBHOOK_URL is set)
         run: node --no-warnings scripts/build-alerts.mjs web/dist/data/history.json web/dist/data
         env:

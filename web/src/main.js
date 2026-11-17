@@ -9,6 +9,8 @@ import { renderBrief } from './brief.js';
 import { createHeroGlobe } from './heroglobe.js';
 import { createChanges, renderChanges, counters as changeCounters } from './changes.js';
 import { createBoot } from './boot.js';
+import { createSearch, norm } from './search.js';
+import { PLACES } from './places.js';
 const ds = createDataSource();
 
 // ---------------------------------------------------------------- Visuals Lite
@@ -98,10 +100,11 @@ document.querySelector('#app').innerHTML = `
     <span class="chip hide-m">FEEDS<b id="c-feeds">—</b></span>
     <span class="chip hide-m">MSG/MIN<b id="c-msgs">—</b></span>
     <button class="chip btn hide-m" id="b-lite" aria-pressed="false" aria-label="Visuals full or lite" data-tip="Visuals: FULL has glow, grain and motion. LITE turns them off for older phones and battery."><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><span class="lbl">VISUALS</span><b id="c-lite">FULL</b></button>
-    <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m">TOUR</span></button>
+    <button class="chip btn" id="b-search" aria-label="Search ships, assets and places" data-tip="Search ships, cables, incidents and places (⌘K or /)"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.4 10.4 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span class="lbl hide-m">SEARCH</span><kbd class="kbd hide-m">⌘K</kbd></button>
+    <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m lbl">TOUR</span></button>
     <button class="chip btn" id="b-brief" data-tip="Today's one-page summary" aria-label="Daily brief"><svg class="bb-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke="currentColor" stroke-width="1.2"/></svg><span class="bb-t">DAILY BRIEF</span></button>
-    <a class="chip btn hide-m" id="b-how" href="./how.html">HOW IT WORKS</a>
-    <button class="chip btn hide-m" id="b-signals">WHAT SIGNALS MEAN</button>
+    <a class="chip btn hide-m" id="b-how" href="./how.html" aria-label="How it works" data-tip="How it works: rules, data, tests and limits"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span class="lbl">HOW IT WORKS</span></a>
+    <button class="chip btn hide-m" id="b-signals" aria-label="What signals mean" data-tip="What each signal means, and keyboard shortcuts"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8h3l1.5-4 3 8 1.5-4h4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span class="lbl">WHAT SIGNALS MEAN</span></button>
     <span class="status-pill" id="c-level" data-level="STALE">CONNECTING</span>
   </header>
 
@@ -223,6 +226,7 @@ document.body.insertAdjacentHTML('beforeend', `
     <table>${SIGNAL_ORDER.map((k) => `<tr><td>${k}</td><td><b>${SIGNALS[k].label}.</b> ${SIGNALS[k].weak}</td></tr>`).join('')}
       <tr><td>LEVELS</td><td><b>WATCH</b> = one signal. <b>ELEVATED</b> = two independent signals. <b>HIGH</b> = three or more, including DRAG or DARK. Weather, ship type (fishing, dredging, cable-laying, pilot, SAR) and anchorages can mark a signal as <i>explained</i>.</td></tr>
       <tr><td>CHANGES</td><td><b>What changed</b> lists transitions seen since you opened the page: new, escalated and cleared alerts, listed ships entering a named asset's corridor, new AIS gaps and feeds going stale. A change is a change in the data, not an event at sea.</td></tr>
+      <tr class="hide-touch"><td>KEYS</td><td><b>Keyboard shortcuts.</b> <kbd class="kbd">1</kbd>–<kbd class="kbd">7</kbd> map regions · <kbd class="kbd">/</kbd> or <kbd class="kbd">⌘K</kbd> search · <kbd class="kbd">L</kbd> Visuals Lite · <kbd class="kbd">G</kbd> 3D globe · <kbd class="kbd">B</kbd> daily brief · <kbd class="kbd">?</kbd> all shortcuts · <kbd class="kbd">Esc</kbd> close.</td></tr>
     </table>
   </div></div>
 `);
@@ -717,6 +721,7 @@ function tickClock() {
 // ---------------------------------------------------------------- dossier
 async function openDossier(mmsi) {
   state.selectedMmsi = mmsi;
+  setLink([...state.alerts.values()].some((a) => a.mmsi === mmsi) ? 'alert' : 'ship', mmsi);
   const d = $('#dossier');
   const v0 = state.vessels.get(mmsi);
   d.classList.add('on');
@@ -734,6 +739,7 @@ async function openDossier(mmsi) {
   globe.showTrack(track, v?.level || alert?.level);
 }
 function closeDossier() {
+  if (state.selectedMmsi != null) setLink(null);
   state.selectedMmsi = null;
   $('#dossier').classList.remove('on');
   document.body.classList.remove('dossier-on');
@@ -746,6 +752,7 @@ function dossierHTML(v, track, alert, loading) {
     <div class="dh">
       <div class="k">VESSEL DOSSIER${v.level ? ` · <span style="color:var(--${v.level === 'HIGH' ? 'red' : v.level === 'ELEVATED' ? 'amber' : 'cyan'})">${v.level}</span>` : ''}</div>
       <div class="nm">${esc(v.name || 'UNNAMED')}</div>
+      <button class="cp" data-copy="${alert ? 'alert' : 'ship'}" data-v="${esc(v.mmsi)}" aria-label="Copy a link to this ${alert ? 'alert' : 'ship'}">COPY LINK</button>
       <div class="sub">${esc(v.typeLabel || 'Unknown type')}${v.flag ? ' · ' + esc(v.flag) : ''}${v.dest ? ' · → ' + esc(v.dest) : ''}</div>
       <button class="x" data-close>×</button>
     </div>
@@ -779,6 +786,81 @@ function selectAlert(id, fly = true) {
   openDossier(a.mmsi);
   globe.setTasking(a);
   if (MOBILE()) setSheetTab('ALERTS', true);
+}
+
+// ---------------------------------------------------------------- links, toast, copy
+// Deep links: ?alert=<mmsi> · ?ship=<mmsi> · ?asset=<name> · ?brief[=YYYY-MM-DD] (a #alert=… hash works too).
+const SITE_BASE = (import.meta.env.VITE_SITE_URL || location.origin + location.pathname).replace(/index\.html$/, '');
+const LINK_KEYS = ['alert', 'ship', 'asset'];
+const cleanQuery = (q) => q.replace(/=(?=&|$)/g, '');
+function setParam(k, v) {
+  const u = new URL(location.href);
+  if (v == null) u.searchParams.delete(k); else u.searchParams.set(k, v);
+  const q = cleanQuery(u.searchParams.toString());
+  history.replaceState(null, '', u.pathname + (q ? '?' + q : '') + u.hash);
+}
+function setLink(k, v) {
+  const u = new URL(location.href);
+  for (const x of LINK_KEYS) u.searchParams.delete(x);
+  if (/^#(alert|ship|asset)=/.test(u.hash)) u.hash = '';
+  if (k) u.searchParams.set(k, v);
+  const q = cleanQuery(u.searchParams.toString());
+  history.replaceState(null, '', u.pathname + (q ? '?' + q : '') + u.hash);
+}
+function shareUrl(k, v) {
+  const u = new URL(SITE_BASE, location.href);
+  u.search = '';
+  if (k) u.searchParams.set(k, v ?? '');
+  const q = cleanQuery(u.searchParams.toString());
+  return u.origin + u.pathname + (q ? '?' + q : '');
+}
+let toastT = 0;
+function toast(msg) {
+  let el = $('#toast');
+  if (!el) { document.body.insertAdjacentHTML('beforeend', '<div class="toast" id="toast" role="status" aria-live="polite"></div>'); el = $('#toast'); }
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 4200);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch { return false; }
+}
+async function copyLink(btn) {
+  const url = shareUrl(btn.dataset.copy, btn.dataset.v);
+  const ok = await copyText(url);
+  const was = btn.textContent;
+  btn.textContent = ok ? 'COPIED ✓' : 'COPY FAILED';
+  btn.classList.toggle('ok', ok);
+  if (!ok) toast(url);
+  setTimeout(() => { btn.textContent = was; btn.classList.remove('ok'); }, 1600);
+}
+const NOT_HERE = 'not in the current picture (may have left or stopped reporting)';
+function openShip(mmsi, fly = true) {
+  const a = [...state.alerts.values()].find((x) => x.mmsi === mmsi);
+  if (a) { selectAlert(a.id, fly); return true; }
+  const v = state.vessels.get(mmsi);
+  if (!v) return false;
+  state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null);
+  if (fly && typeof v.lon === 'number') globe.flyPoint(v.lon, v.lat, 90000);
+  openDossier(mmsi);
+  if (MOBILE()) $('#sheet').classList.add('min');
+  return true;
+}
+function flyAsset(name) {
+  const key = norm(name);
+  const a = namedAssets().find((x) => norm(x.name) === key) || namedAssets().find((x) => norm(x.name).includes(key));
+  if (!a || !a.coords.length) return null;
+  const mid = a.coords[Math.floor(a.coords.length / 2)];
+  globe.flyPoint(mid[0], mid[1], 380000);
+  if (MOBILE()) $('#sheet').classList.add('min');
+  return a;
 }
 
 // ---------------------------------------------------------------- data
@@ -868,14 +950,66 @@ async function getJSON(url) {
 }
 
 let coastLoaded = false;
-function openBrief() {
+// Daily brief overlay, with the archive published by the Pages workflow (data/briefs/index.json + one file per day).
+// Without an archive (local server, or before the first run) the date controls simply don't appear.
+let briefIdx = null; // null = not fetched yet · false = no archive · ['YYYY-MM-DD', …] newest first
+let briefDate = null; // date of the brief on screen, or null for "latest"
+async function briefIndex() {
+  if (briefIdx === null) {
+    const j = await getJSON(asset('data/briefs/index.json'));
+    briefIdx = Array.isArray(j?.dates) && j.dates.length ? j.dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) : false;
+    if (briefIdx && !briefIdx.length) briefIdx = false;
+  }
+  return briefIdx;
+}
+function openBrief(date = null) {
   let el = $('#brief');
   if (!el) {
-    document.body.insertAdjacentHTML('beforeend', '<div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Daily brief"><div class="bf-box"><button class="bf-x" id="brief-x" aria-label="Close">✕</button><div id="brief-body"></div></div></div>');
+    document.body.insertAdjacentHTML('beforeend', '<div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Daily brief"><div class="bf-box"><button class="bf-x" id="brief-x" aria-label="Close">✕</button><div class="bf-nav" id="brief-nav"></div><div id="brief-body"></div></div></div>');
     el = $('#brief');
   }
-  $('#brief-body').innerHTML = renderBrief(state.brief);
   el.classList.add('on');
+  showBrief(date);
+}
+function closeBrief() {
+  const el = $('#brief');
+  if (!el?.classList.contains('on')) return;
+  el.classList.remove('on');
+  setParam('brief', null);
+}
+let briefSeq = 0;
+async function showBrief(date) {
+  const seq = ++briefSeq;
+  const latestDate = state.brief?.generated ? state.brief.generated.slice(0, 10) : null;
+  if (date && date === latestDate) date = null;
+  $('#brief-body').innerHTML = date ? '<div class="bf-empty"><div class="bf-k">DAILY BRIEF</div><p>Loading…</p></div>' : renderBrief(state.brief);
+  const idx = await briefIndex();
+  if (seq !== briefSeq) return;
+  let b = state.brief;
+  if (date) {
+    b = idx && idx.includes(date) ? await getJSON(asset(`data/briefs/${date}.json`)) : null;
+    if (seq !== briefSeq) return;
+    if (!b?.generated) { toast(`No brief archived for ${date}. Showing the latest.`); date = null; b = state.brief; }
+  }
+  briefDate = date;
+  $('#brief-body').innerHTML = renderBrief(b);
+  const shown = date || latestDate;
+  const i = idx && shown ? idx.indexOf(shown) : -1;
+  const nav = $('#brief-nav');
+  const opts = idx ? idx.map((d) => `<option value="${d}" ${d === shown ? 'selected' : ''}>${d}${d === latestDate ? ' · latest' : ''}</option>`).join('') : '';
+  nav.innerHTML = `${idx ? `<button class="chip btn" data-bn="older" ${i < 0 || i >= idx.length - 1 ? 'disabled' : ''} aria-label="Older brief">‹ OLDER</button>
+      <select id="bf-date" aria-label="Brief date">${i < 0 && shown ? `<option selected>${shown}</option>` : ''}${opts}</select>
+      <button class="chip btn" data-bn="newer" ${i <= 0 ? 'disabled' : ''} aria-label="Newer brief">NEWER ›</button>` : ''}
+    <span class="sp"></span>${b?.generated ? `<button class="cp" data-copy="brief" data-v="${date || ''}">COPY LINK</button>` : ''}`;
+  nav.querySelector('#bf-date')?.addEventListener('change', (e) => showBrief(e.target.value));
+  setParam('brief', date || '');
+}
+function stepBrief(dir) {
+  if (!briefIdx) return;
+  const shown = briefDate || state.brief?.generated?.slice(0, 10);
+  const i = briefIdx.indexOf(shown);
+  const j = dir === 'older' ? i + 1 : i - 1;
+  if (i >= 0 && j >= 0 && j < briefIdx.length) showBrief(briefIdx[j]);
 }
 
 // Optional data published by GitHub Actions. Dev-only fixtures: ?sarsample / ?briefsample (never in a production build).
@@ -1244,6 +1378,10 @@ setInterval(() => { renderTop(); renderSources(); renderLayers(); }, 5000);
 let introDone = false;
 const params = new URLSearchParams(location.search);
 const HOLD = params.has('hold');
+const hashParams = new URLSearchParams(location.hash.slice(1));
+const linkParam = (k) => params.get(k) ?? hashParams.get(k);
+const DEEP = ['alert', 'ship', 'asset'].some((k) => linkParam(k)) || params.has('brief');
+const NOHERO = params.has('nohero') || DEEP;
 $('#ring').classList.add('on');
 // Intro → dashboard: the canvas globe swoops onto the Baltic, framed exactly like the flat map's opening view,
 // then cross-fades into it. Cesium is never loaded for the intro (only for 3D GLOBE mode).
@@ -1277,12 +1415,12 @@ function exitHero() {
   } else finish();
 }
 setViewMode('flat', { fly: false });
-if (params.has('nohero')) {
+if (NOHERO) {
   introDone = true;
   document.body.classList.remove('hero-on');
   $('#hero')?.remove();
   showBootOv();
-  setTimeout(maybeOfferTour, 1500);
+  if (!DEEP) setTimeout(maybeOfferTour, 1500);
 } else {
   $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
   ['wheel', 'keydown', 'touchmove'].forEach((ev) => window.addEventListener(ev, exitHero, { passive: true }));
@@ -1386,15 +1524,13 @@ document.addEventListener('click', (e) => {
   const vis = t.closest('[data-vis]');
   if (vis) { setLite(vis.dataset.vis === 'lite', true); return; }
   const as = t.closest('.asset[data-name]');
-  if (as) {
-    const a = namedAssets().find((x) => x.name === as.dataset.name);
-    if (a && a.coords.length) {
-      const mid = a.coords[Math.floor(a.coords.length / 2)];
-      globe.flyPoint(mid[0], mid[1], 380000);
-      if (MOBILE()) $('#sheet').classList.add('min');
-    }
-    return;
-  }
+  if (as) { if (flyAsset(as.dataset.name)) { if (state.selectedMmsi != null) closeDossier(); setLink('asset', as.dataset.name); } return; }
+  const cp = t.closest('[data-copy]');
+  if (cp) { copyLink(cp); return; }
+  const bn = t.closest('[data-bn]');
+  if (bn) { stepBrief(bn.dataset.bn); return; }
+  if (t.closest('#b-search')) { openSearch(); return; }
+  if (t.closest('#keys-x') || t.id === 'keys') { closeKeys(); return; }
   if (t.closest('a[href]')) return;
   const inc = t.closest('.inc[data-id]');
   if (inc) { flyIncident(inc.dataset.id); if (MOBILE()) $('#sheet').classList.add('min'); return; }
@@ -1403,14 +1539,102 @@ document.addEventListener('click', (e) => {
   if (t.closest('[data-close]')) { closeDossier(); state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null); return; }
   if (t.closest('#b-signals')) { $('#modal').classList.add('on'); return; }
   if (t.closest('#b-brief')) { openBrief(); return; }
-  if (t.closest('#brief-x') || t.id === 'brief') { $('#brief').classList.remove('on'); return; }
+  if (t.closest('#brief-x') || t.id === 'brief') { closeBrief(); return; }
   if (t.closest('#modal-x') || t.id === 'modal') { $('#modal').classList.remove('on'); return; }
   const st = t.closest('#stabs button');
   if (st) { setSheetTab(st.dataset.t, true); return; }
   if (t.closest('#grab')) { $('#sheet').classList.toggle('min'); return; }
 });
+// ---------------------------------------------------------------- search + keyboard
+const search = createSearch({ items: searchItems, onPick: pickSearch });
+function openSearch() { if (!introDone) return; closeKeys(); search.open(); }
+function searchItems() {
+  const out = [];
+  const alerted = new Set();
+  for (const a of sortedAlerts()) {
+    alerted.add(a.mmsi);
+    const live = (a.signals || []).filter((x) => !x.explained).map((x) => SIGNALS[x.id]?.short || x.id);
+    out.push({ kind: 'alert', tag: a.level, label: a.name || `MMSI ${a.mmsi}`, sub: `${live.join(' · ') || 'signals explained'}${a.asset ? ' · near ' + a.asset : ''} · MMSI ${a.mmsi}`,
+      keys: [norm(a.name), String(a.mmsi), a.imo ? String(a.imo) : '', norm(a.asset)], boost: 12, id: a.id, mmsi: a.mmsi });
+  }
+  for (const v of state.vessels.values()) {
+    if (alerted.has(v.mmsi)) continue;
+    out.push({ kind: 'ship', tag: v.watch ? 'LISTED' : 'SHIP', label: v.name || `MMSI ${v.mmsi}`,
+      sub: [v.typeLabel, v.flag, v.corridor ? `in ${v.corridor} corridor` : '', `MMSI ${v.mmsi}`].filter(Boolean).join(' · '),
+      keys: [norm(v.name), String(v.mmsi), v.imo ? String(v.imo) : ''], boost: v.watch ? 4 : 0, mmsi: v.mmsi });
+  }
+  for (const a of namedAssets()) {
+    out.push({ kind: 'asset', label: a.name, sub: a.kind === 'pipeline' ? 'Gas pipeline · critical asset' : a.kind === 'power' ? 'Power cable · critical asset' : 'Telecom cable · critical asset',
+      keys: [norm(a.name)], boost: 6, name: a.name });
+  }
+  for (const i of state.incidents) {
+    out.push({ kind: 'incident', label: i.title, sub: [i.date, i.vessel?.name, i.outcomeStatus].filter(Boolean).join(' · '),
+      keys: [norm(i.title), norm(i.vessel?.name), i.vessel?.imo ? String(i.vessel.imo) : '', norm(i.date)], boost: 2, id: i.id });
+  }
+  for (const r of Object.keys(REGIONS)) out.push({ kind: 'region', label: r, sub: 'Map region', keys: [norm(r)], boost: 3, region: r });
+  const seen = new Set(Object.keys(REGIONS).map(norm));
+  const RANGE = { country: 900000, sea: 900000, gulf: 380000, city: 90000, port: 60000 };
+  for (const [text, lon, lat, kind] of PLACES) {
+    if (!RANGE[kind] || seen.has(norm(text))) continue;
+    seen.add(norm(text));
+    out.push({ kind: 'place', label: text, sub: kind[0].toUpperCase() + kind.slice(1), keys: [norm(text)], lon, lat, range: RANGE[kind] });
+  }
+  return out;
+}
+function pickSearch(it) {
+  dismissHint();
+  if (it.kind === 'alert') selectAlert(it.id);
+  else if (it.kind === 'ship') { if (!openShip(it.mmsi)) toast(`That ship is ${NOT_HERE}.`); }
+  else if (it.kind === 'asset') { if (flyAsset(it.name)) { if (state.selectedMmsi != null) closeDossier(); setLink('asset', it.name); } }
+  else if (it.kind === 'incident') flyIncident(it.id);
+  else if (it.kind === 'region') { state.region = it.region; renderRegions(); globe.flyRegion(it.region); }
+  else if (it.kind === 'place') globe.flyPoint(it.lon, it.lat, it.range);
+}
+const KEYS = [['1 – 7', 'Map regions: Baltic, Gulf of Finland, Åland, Gotland, Bornholm, Danish Straits, World'], [`/  or  ${/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'}`, 'Search ships, assets, incidents and places'],
+  ['L', 'Visuals Lite on / off'], ['G', '3D globe / 2D map'], ['B', 'Daily brief'], ['?', 'This list'], ['Esc', 'Close the top panel']];
+function openKeys() {
+  let el = $('#keys');
+  if (!el) {
+    document.body.insertAdjacentHTML('beforeend', `<div class="keys" id="keys" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div class="keys-box">
+      <div class="keys-h"><span>KEYBOARD SHORTCUTS</span><button class="chip btn" id="keys-x">CLOSE</button></div>
+      ${KEYS.map(([k, d]) => `<div class="keys-r"><span class="keys-k">${k.split(/\s+or\s+|\s{2,}or\s{2,}/).map((x) => `<kbd class="kbd">${esc(x.trim())}</kbd>`).join(' or ')}</span><span>${esc(d)}</span></div>`).join('')}
+    </div></div>`);
+    el = $('#keys');
+  }
+  el.classList.add('on');
+}
+function closeKeys() { $('#keys')?.classList.remove('on'); }
+// Esc closes only the topmost thing that is open.
+function closeTopmost() {
+  if (search.isOpen()) { search.close(); return; }
+  if ($('#keys')?.classList.contains('on')) { closeKeys(); return; }
+  if ($('#brief')?.classList.contains('on')) { closeBrief(); return; }
+  if ($('#modal').classList.contains('on')) { $('#modal').classList.remove('on'); return; }
+  if (state.selectedMmsi != null || state.selectedAlert) { closeDossier(); state.selectedAlert = null; renderAlerts(); renderShouldnt(); globe.setTasking(null); return; }
+  if (state.focusTile) { state.focusTile = null; setFocus(null); }
+}
+const typing = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { $('#modal').classList.remove('on'); $('#brief')?.classList.remove('on'); closeDossier(); if (state.focusTile) { state.focusTile = null; setFocus(null); } }
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+    if (!introDone) return;
+    e.preventDefault();
+    if (search.isOpen()) search.close(); else openSearch();
+    return;
+  }
+  if (e.key === 'Escape') { if (!tour.active()) closeTopmost(); return; }
+  // any key during the intro just enters the map (handled by exitHero); shortcuts start once the dashboard is up
+  if (!introDone || e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || search.isOpen() || tour.active()) return;
+  const k = e.key;
+  if (/^[1-7]$/.test(k)) {
+    const r = Object.keys(REGIONS)[+k - 1];
+    if (r) { state.region = r; renderRegions(); globe.flyRegion(r); }
+  } else if (k === 'l' || k === 'L') setLite(!LITE, true);
+  else if (k === 'g' || k === 'G') setViewMode(viewMode === 'flat' ? 'globe' : 'flat');
+  else if (k === 'b' || k === 'B') { if ($('#brief')?.classList.contains('on')) closeBrief(); else openBrief(); }
+  else if (k === '/') openSearch();
+  else if (k === '?') { if ($('#keys')?.classList.contains('on')) closeKeys(); else { closeTopmost(); openKeys(); } }
+  else return;
+  e.preventDefault();
 });
 
 // ---------------------------------------------------------------- tooltips for [data-tip]
@@ -1500,23 +1724,63 @@ const TOUR_STEPS = [
   {
     target: tabPanel('SOURCES', '.bottom .panel:nth-child(3)'),
     title: 'All public data. Gaps flagged.',
-    body: 'Every feed, how fresh it is, and what is missing (in amber). Hover any <i class="info inl">i</i> or tile for a plain-English explanation. Replay this tour any time with <b>? TOUR</b>.',
+    body: 'Every feed, how fresh it is, and what is missing (in amber). Hover any <i class="info inl">i</i> or tile for a plain-English explanation. Replay this tour any time with <b>? TOUR</b>' + (MOBILE() ? '' : ', and press <b>?</b> for keyboard shortcuts') + '.',
     before: () => onTab('SOURCES'),
   },
 ];
 const tour = createTour(TOUR_STEPS, { onEnd: () => { if (MOBILE()) { setSheetTab('ALERTS'); $('#sheet').classList.add('min'); } } });
 function startTour() { $('.tour-offer')?.remove(); tour.start(); }
 function maybeOfferTour() { if (!params.has('notour') && !params.has('tour') && !tour.active()) offerTour(startTour); }
-if (params.has('tour')) setTimeout(startTour, params.has('nohero') ? 1200 : 7700 + 2200);
+if (params.has('tour')) setTimeout(startTour, NOHERO ? 1200 : 7700 + 2200);
 
-window.addEventListener('resize', () => { layoutForViewport(); buildRing(); });
+// ⌘K on Apple devices, Ctrl K elsewhere
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+if (!IS_MAC) for (const k of document.querySelectorAll('#b-search .kbd, #modal .kbd')) if (k.textContent === '⌘K') k.textContent = 'CTRL K';
+
+// ---------------------------------------------------------------- top bar fit
+// Drop secondary top-bar items, least important first, until it fits on one line at any width.
+const TB_DROP = ['.chip:has(#c-sweep)', '.chip:has(#c-msgs)', '.strap', '#b-lite .lbl', '#b-search .lbl', '#b-how .lbl', '#b-signals .lbl',
+  '.chip:has(#c-feeds)', '#b-search .kbd', '#b-tour .lbl', '#b-lite', '.chip:has(#c-utc)', '#b-brief .bb-t', '.byline .byline-k'];
+function fitTopbar() {
+  const tb = $('.topbar');
+  if (!tb) return;
+  for (const n of tb.querySelectorAll('.tb-x')) n.classList.toggle('tb-x', false);
+  for (const sel of TB_DROP) {
+    if (tb.scrollWidth <= tb.clientWidth + 1) break;
+    const n = tb.querySelector(sel);
+    if (n) n.classList.add('tb-x');
+  }
+}
+let fitRaf = 0;
+const queueFit = () => { if (!fitRaf) fitRaf = requestAnimationFrame(() => { fitRaf = 0; fitTopbar(); }); };
+document.fonts?.ready.then(queueFit);
+setInterval(queueFit, 5000); // chip values (feeds, msg rate) change width a little
+
+window.addEventListener('resize', () => { layoutForViewport(); buildRing(); queueFit(); });
+queueFit();
 layoutForViewport();
 
-loadStatic();
+const staticReady = loadStatic();
+async function handleDeepLink() {
+  await staticReady;
+  if (params.has('brief')) openBrief(params.get('brief') || null);
+  const al = linkParam('alert'), sh = linkParam('ship'), as = linkParam('asset');
+  if (al) {
+    const a = state.alerts.get(al) || [...state.alerts.values()].find((x) => String(x.mmsi) === al);
+    if (a) selectAlert(a.id);
+    else if (state.vessels.has(+al)) { openShip(+al); toast('No live alert for this ship right now. Showing its dossier.'); }
+    else { toast(`That alert is ${NOT_HERE}.`); setLink(null); }
+  } else if (sh) {
+    if (!openShip(+sh)) { toast(`That ship is ${NOT_HERE}.`); setLink(null); }
+  } else if (as) {
+    if (!flyAsset(as)) { toast(`No named asset called "${as}" in this build.`); setLink(null); }
+  }
+}
 (async () => {
   const ok = await loadSnapshot();
   connectStream();
-  if (!ok) setTimeout(loadSnapshot, 8000);
+  if (ok) { if (DEEP) handleDeepLink(); }
+  else setTimeout(async () => { await loadSnapshot(); if (DEEP) handleDeepLink(); }, 8000);
   // periodic resync guards against missed deltas
   setInterval(loadSnapshot, 5 * 60 * 1000);
 })();
