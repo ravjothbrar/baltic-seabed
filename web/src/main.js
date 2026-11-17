@@ -203,7 +203,6 @@ document.querySelector('#app').innerHTML = `
   </section>
 
   <footer class="foot">
-    <span class="foot-made">Made by Ravjoth Brar - <a class="foot-link" href="https://ravjothbrar.com" target="_blank" rel="noopener">ravjothbrar.com</a></span>
     <span class="sp"></span>
     <span class="foot-src">AIS is self-reported · nothing here is evidence of intent · Data: Digitraffic · EMODnet · TeleGeography · OpenSanctions · Natural Earth</span>
   </footer>
