@@ -7,10 +7,25 @@ import GliderWorker from './glider.worker.js?worker';
 import { createTour, offerTour } from './tour.js';
 import { renderBrief } from './brief.js';
 import { createHeroGlobe } from './heroglobe.js';
+import { createChanges, renderChanges, counters as changeCounters } from './changes.js';
+import { createBoot } from './boot.js';
 const ds = createDataSource();
+
+// ---------------------------------------------------------------- Visuals Lite
+// Lite drops decorative motion and GPU-heavy effects. Default on for phones and reduced-motion; a saved
+// choice (FULL or LITE) always wins over the default.
+const LITE_KEY = 'bsw-visuals';
+const liteDefault = () => !!(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  || (window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 900));
+function liteSaved() { try { const v = localStorage.getItem(LITE_KEY); return v === 'lite' ? true : v === 'full' ? false : null; } catch { return null; } }
+let LITE = liteSaved() ?? liteDefault();
+document.body.classList.toggle('lite', LITE);
 // Intro globe first, so its land file (preloaded by index.html) paints as early as possible.
 let heroGlobe = document.documentElement.classList.contains('nohero') ? null
   : createHeroGlobe(document.getElementById('intro-globe'), { landUrl: asset('geo/hero-land.json'), reduced: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches });
+heroGlobe?.setLite(LITE);
+const boot = createBoot({ lite: () => LITE });
+boot.attach(document.getElementById('hero-boot'), 6);
 
 // ---------------------------------------------------------------- constants
 const SIGNALS = {
@@ -51,6 +66,7 @@ const state = {
   inView: 0,
 };
 
+const BOOT_T0 = Date.now();
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -81,6 +97,7 @@ document.querySelector('#app').innerHTML = `
     <span class="chip hide-m"><b id="c-utc" style="margin:0">—</b></span>
     <span class="chip hide-m">FEEDS<b id="c-feeds">—</b></span>
     <span class="chip hide-m">MSG/MIN<b id="c-msgs">—</b></span>
+    <button class="chip btn hide-m" id="b-lite" aria-pressed="false" aria-label="Visuals full or lite" data-tip="Visuals: FULL has glow, grain and motion. LITE turns them off for older phones and battery."><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg><span class="lbl">VISUALS</span><b id="c-lite">FULL</b></button>
     <button class="chip btn tourbtn" id="b-tour" data-tip="Replay the 60-second guided tour"><span class="q">?</span><span class="hide-m">TOUR</span></button>
     <button class="chip btn" id="b-brief" data-tip="Today's one-page summary" aria-label="Daily brief"><svg class="bb-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke="currentColor" stroke-width="1.2"/></svg><span class="bb-t">DAILY BRIEF</span></button>
     <a class="chip btn hide-m" id="b-how" href="./how.html">HOW IT WORKS</a>
@@ -103,7 +120,8 @@ document.querySelector('#app').innerHTML = `
     </section>
     <section class="panel" data-tab="SOURCES" style="flex:none">
       <div class="panel-h"><span class="t">Visual Presets</span><i class="info" data-tip="Change the look of the map. SONAR and NVG are styles only; they add no data.">i</i></div>
-      <div class="panel-b"><div class="presets" id="presets"></div></div>
+      <div class="panel-b"><div class="presets" id="presets"></div>
+        <div class="vis-row" data-tip="LITE turns off grain, glow, blur and motion (pulses, drift, intro swoop). Auto-on for phones and reduced-motion; your choice is remembered."><span>VISUALS</span><span class="seg" role="group" aria-label="Visual effects"><button type="button" data-vis="full">FULL</button><button type="button" data-vis="lite">LITE</button></span></div></div>
     </section>
   </aside>
 
@@ -119,6 +137,7 @@ document.querySelector('#app').innerHTML = `
       <div class="ov ov-scan"></div>
       <div class="ov ov-vig"></div>
       <div class="ring" id="ring"></div>
+      <div class="boot-ov" id="boot-ov" aria-live="polite"><div class="boot-k">SYSTEM CHECK</div><div class="boot-l" id="boot-l"></div></div>
       <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
       <div class="hud tl">
         <div class="hud-obs">BSW // OBSERVER-1</div>
@@ -152,6 +171,11 @@ document.querySelector('#app').innerHTML = `
     <section class="panel" data-tab="ALERTS" style="flex:1.25">
       <div class="panel-h"><span class="t">Alert Stream</span><i class="info" data-tip="Ships whose behaviour matches a pattern seen in past incidents. Click one to fly to it and open its dossier. These are patterns, not findings.">i</i><span class="tag live" id="t-alerts">0 LIVE</span></div>
       <div class="panel-b"><div class="alerts" id="alerts"></div></div>
+    </section>
+    <section class="panel chgp" data-tab="CHANGES" style="flex:1">
+      <div class="panel-h"><span class="t">What changed</span><i class="info" data-tip="New alerts, escalations, cleared alerts, listed ships entering a named asset's corridor, new AIS gaps and feeds going stale. Built from the live stream since you opened the page. Click one to fly to it.">i</i><span class="tag" id="t-chg">0</span></div>
+      <div class="chg-bar"><span class="chg-cnt" id="chg-cnt">nothing yet</span><span class="seg" role="group" aria-label="Time window"><button type="button" class="on" data-cw="open">Since you opened</button><button type="button" data-cw="hour">Last hour</button></span></div>
+      <div class="panel-b"><div class="chgs" id="chgs"></div></div>
     </section>
     <section class="panel" data-tab="ALERTS" style="flex:none">
       <div class="panel-h"><span class="t">Signal Core</span><i class="info" data-tip="How many ships each rule is firing on right now. A rule that fires a lot is weak evidence on its own.">i</i><span class="tag">24H RULES</span></div>
@@ -199,6 +223,7 @@ document.body.insertAdjacentHTML('beforeend', `
     <p class="intro-p">Every alert here is a <b>pattern in public ship-tracking data</b>, not a finding. Each rule is cheap to trigger and easy to explain away, so the map shows the reasons next to the flag. AIS is self-reported, can be spoofed or switched off, and sees nothing below the surface. That gap is what persistent underwater sensing would close.</p>
     <table>${SIGNAL_ORDER.map((k) => `<tr><td>${k}</td><td><b>${SIGNALS[k].label}.</b> ${SIGNALS[k].weak}</td></tr>`).join('')}
       <tr><td>LEVELS</td><td><b>WATCH</b> = one signal. <b>ELEVATED</b> = two independent signals. <b>HIGH</b> = three or more, including DRAG or DARK. Weather, ship type (fishing, dredging, cable-laying, pilot, SAR) and anchorages can mark a signal as <i>explained</i>.</td></tr>
+      <tr><td>CHANGES</td><td><b>What changed</b> lists transitions seen since you opened the page: new, escalated and cleared alerts, listed ships entering a named asset's corridor, new AIS gaps and feeds going stale. A change is a change in the data, not an event at sea.</td></tr>
     </table>
   </div></div>
 `);
@@ -237,7 +262,8 @@ function buildRing() {
 const numAnim = new WeakMap();
 function setNum(el, to, opts = {}) {
   if (!el) return;
-  if (to == null || Number.isNaN(to)) { el.textContent = '—'; numAnim.delete(el); return; }
+  if (to == null || Number.isNaN(to)) { if (opts.skel) el.innerHTML = '<span class="skel"></span>'; else el.textContent = '—'; numAnim.delete(el); return; }
+  if (LITE) { numAnim.set(el, { val: to }); el.textContent = (opts.dec ? to.toFixed(opts.dec) : Math.round(to).toLocaleString('en-GB')) + (opts.suf ?? ''); return; }
   const from = numAnim.has(el) ? numAnim.get(el).val : 0;
   const t0 = performance.now();
   const dur = opts.dur ?? 700;
@@ -300,7 +326,7 @@ function setFocus(k) {
 function renderTiles() {
   const el = $('#tiles');
   if (!el.children.length) {
-    el.innerHTML = TILE_DEFS.map((d) => `<div class="tile ${d.cls}${d.focus ? ' act' : ''}" data-k="${d.k}" data-tip="${esc(d.tip)}"><div class="k" style="color:${d.color}"><i></i><span style="color:var(--ink-3)">${d.label}</span></div><div class="v">—</div><div class="s">${d.sub}</div><div class="sp"></div></div>`).join('');
+    el.innerHTML = TILE_DEFS.map((d) => `<div class="tile ${d.cls}${d.focus ? ' act' : ''}" data-k="${d.k}" data-tip="${esc(d.tip)}"><div class="k" style="color:${d.color}"><i></i><span style="color:var(--ink-3)">${d.label}</span></div><div class="v"><span class="skel"></span></div><div class="s">${d.sub}</div><div class="sp"></div></div>`).join('');
   }
   const s = state.stats;
   const vals = {
@@ -315,9 +341,11 @@ function renderTiles() {
     const t = el.querySelector(`[data-k="${d.k}"]`);
     if (d.k === 'wind') {
       const v = t.querySelector('.v');
-      v.textContent = vals.wind == null ? '—' : `${Math.round(vals.wind)} kn`;
+      if (vals.wind != null) v.textContent = `${Math.round(vals.wind)} kn`;
+      else if (state.feeds?.weather?.ok || Date.now() - BOOT_T0 > 60e3) v.textContent = '—';
+      else v.innerHTML = '<span class="skel"></span>'; // first weather fetch still pending
       t.querySelector('.s').textContent = vals.wind == null ? (state.feeds?.weather?.ok ? 'no reading yet' : 'awaiting data') : vals.wind >= 30 ? 'gale' : 'Gulf of Finland';
-    } else setNum(t.querySelector('.v'), vals[d.k]);
+    } else setNum(t.querySelector('.v'), vals[d.k], { skel: !s && !state.vessels.size });
     if (d.k === 'alerts' && s) t.querySelector('.s').textContent = `${s.alerts?.WATCH || 0} · ${s.alerts?.ELEVATED || 0} · ${s.alerts?.HIGH || 0}`;
     const h = state.hist[d.k];
     t.querySelector('.sp').innerHTML = h ? spark(h, d.color) : '';
@@ -866,6 +894,7 @@ async function loadStatic() {
   if (!state.landLoaded) getJSON(asset('geo/land.json')).then((l) => { if (l) { state.landLoaded = true; globe.setLand(l); } });
   const [infra, incidents, grid, sar, brief] = await Promise.all([getJSON(asset('data/infra.geojson')), getJSON(asset('data/incidents.json')), getJSON(asset('data/grid.json')), loadOptional('sar'), loadOptional('brief')]);
   if (sar?.unmatchedCells) { state.sar = sar; flat.setSar(sar.unmatchedCells); renderLegend(); renderSources(); renderShouldnt(); }
+  bootStatic(infra, sar);
   if (brief?.generated) state.brief = brief;
   if (infra && infra.features) {
     state.infra = infra;
@@ -926,6 +955,7 @@ function applyVessels(upd, del) {
   if (del?.length) {
     for (const id of del) state.vessels.delete(id);
     globe.removeVessels(del);
+    changes.removeVessels(del);
   }
   // refresh the intro globe once, after both updates and deletions
   if (heroGlobe && (upd?.length || del?.length)) heroGlobe.setVessels([...state.vessels.values()]);
@@ -945,6 +975,8 @@ async function loadSnapshot() {
   applyVessels(s.vessels || [], []);
   state.alerts.clear();
   (s.alerts || []).forEach(applyAlert);
+  changes.snapshot({ alerts: s.alerts || [], vessels: s.vessels || [], feeds: state.feeds }); // baseline (first) or silent resync
+  bootFeeds();
   pushHist();
   renderAll();
   if (gliderWorker) {
@@ -956,17 +988,19 @@ async function loadSnapshot() {
 
 function connectStream() {
   ds.subscribe({
-    open: () => { state.sseOk = true; renderSources(); renderTop(); },
-    error: () => { state.sseOk = false; renderSources(); renderTop(); },
-    vessels: (d) => { applyVessels(d.upd, d.del); throttledRender(); },
-    alert: (a) => { applyAlert(a); renderAlerts(); renderMeters(); if (state.selectedAlert) renderShouldnt(); },
-    alert_clear: ({ id }) => {
+    open: () => { state.sseOk = true; renderSources(); renderTop(); bootFeeds(); },
+    error: () => { state.sseOk = false; renderSources(); renderTop(); bootFeeds(); },
+    vessels: (d) => { applyVessels(d.upd, d.del); changes.vessels(d.upd); throttledRender(); if (d.upd?.length) bootFeeds(); },
+    alert: (a) => { changes.alert(a); applyAlert(a); renderAlerts(); renderMeters(); if (state.selectedAlert) renderShouldnt(); },
+    alert_clear: ({ id, mmsi }) => {
+      const was = state.alerts.get(id);
+      changes.clear({ id, mmsi: mmsi ?? was?.mmsi }, was?.name || state.vessels.get(mmsi ?? was?.mmsi)?.name);
       state.alerts.delete(id);
       if (state.selectedAlert === id) { state.selectedAlert = null; renderShouldnt(); globe.setTasking(null); }
       renderAlerts();
     },
     stats: (st) => { state.stats = st; pushHist(); renderTiles(); renderMeters(); renderTop(); },
-    feeds: (f) => { state.feeds = f; renderSources(); renderTop(); renderLayers(); },
+    feeds: (f) => { state.feeds = f; changes.feeds(f); renderSources(); renderTop(); renderLayers(); bootFeeds(); },
     heat: (h) => {
       state.heat = h;
       if (gliderWorker) {
@@ -988,6 +1022,106 @@ function throttledRender() {
   }, 1500);
 }
 
+// ---------------------------------------------------------------- what changed
+const namedSet = () => { if (!namedSet.c && state.infra) namedSet.c = new Set(state.infra.features.filter((f) => f.properties?.named).map((f) => f.properties.name)); return namedSet.c || new Set(); };
+const changes = createChanges({ isNamed: (n) => namedSet().has(n) });
+let chgWindow = 'open';
+let chgRaf = 0;
+function renderChangeLog() {
+  const items = changes.list(chgWindow === 'hour' ? 3600e3 : 0);
+  renderChanges($('#chgs'), items, { mode: chgWindow });
+  const c = changeCounters(items);
+  $('#chg-cnt').textContent = c || 'nothing yet';
+  $('#t-chg').textContent = String(items.length);
+  $('#t-chg').classList.toggle('live', items.length > 0);
+}
+changes.on(() => { if (!chgRaf) chgRaf = setTimeout(() => { chgRaf = 0; renderChangeLog(); }, 250); });
+setInterval(renderChangeLog, 30e3); // keeps the relative times and the last-hour window current
+function openChange(el) {
+  if (el.dataset.feed) {
+    if (MOBILE()) setSheetTab('SOURCES', true);
+    else { const p = $('#srcs')?.closest('.panel'); if (p) { p.classList.remove('flash'); void p.offsetWidth; p.classList.add('flash'); } }
+    return;
+  }
+  const mmsi = Number(el.dataset.mmsi);
+  const a = (el.dataset.alert && state.alerts.get(el.dataset.alert)) || [...state.alerts.values()].find((x) => x.mmsi === mmsi);
+  if (a) { selectAlert(a.id); return; }
+  const v = state.vessels.get(mmsi);
+  if (v && typeof v.lon === 'number') { globe.flyPoint(v.lon, v.lat, 120000); openDossier(mmsi); if (MOBILE()) $('#sheet').classList.add('min'); }
+  else { el.classList.add('gone'); el.querySelector('.chg-t').textContent = 'not in view'; }
+}
+
+// ---------------------------------------------------------------- Visuals Lite
+function setLite(on, save) {
+  LITE = !!on;
+  document.body.classList.toggle('lite', LITE);
+  flat.setLite(LITE);
+  heroGlobe?.setLite(LITE);
+  $('#c-lite').textContent = LITE ? 'LITE' : 'FULL';
+  $('#b-lite').setAttribute('aria-pressed', String(LITE));
+  $$('[data-vis]').forEach((b) => b.classList.toggle('on', (b.dataset.vis === 'lite') === LITE));
+  if (save) { try { localStorage.setItem(LITE_KEY, LITE ? 'lite' : 'full'); } catch {} }
+}
+
+// ---------------------------------------------------------------- boot log (real checks only)
+function bootStatic(infra, sar) {
+  if (infra?.features) {
+    let segs = 0;
+    for (const f of infra.features) {
+      const g = f.geometry;
+      const runs = g?.type === 'MultiLineString' ? g.coordinates : g?.type === 'LineString' ? [g.coordinates] : [];
+      for (const r of runs) segs += Math.max(0, r.length - 1);
+    }
+    boot.set('idx', `CORRIDOR INDEX · ${fmt(segs)} segments`, 'ok');
+  } else boot.set('idx', 'CORRIDOR INDEX · not loaded', 'warn');
+  if (sar?.unmatchedCells) boot.set('gfw', `GFW RADAR · ${(sar.dateRange || []).join(' → ') || 'loaded'}`, 'ok');
+  else boot.set('gfw', 'GFW RADAR · token not set', 'off');
+}
+let bootDtCount = null;
+function bootFeeds() {
+  const f = state.feeds;
+  if (!f) return;
+  const dt = f.digitraffic;
+  if (dt?.ok) {
+    if (bootDtCount == null) bootDtCount = dt.count || state.vessels.size; // count fixed at first success: no churn
+    boot.set('dt', `DIGITRAFFIC AIS · ${fmt(bootDtCount)} ships`, 'ok');
+  } else if (dt) boot.set('dt', dt.last ? 'DIGITRAFFIC AIS · stale' : 'DIGITRAFFIC AIS · connecting', dt.last || Date.now() - BOOT_T0 > 30e3 ? 'warn' : 'pend');
+  const ai = f.aisstream;
+  if (!ai?.enabled) boot.set('ais', 'AISSTREAM · not configured', 'off');
+  else boot.set('ais', ai.ok ? 'AISSTREAM · whole Baltic' : ai.last ? 'AISSTREAM · stale' : 'AISSTREAM · no data yet', ai.ok ? 'ok' : 'warn');
+  const wl = f.watchlist;
+  if (wl) boot.set('wl', wl.ok ? `OPENSANCTIONS · ${fmt(wl.count)} listed` : 'OPENSANCTIONS · list not loaded', wl.ok ? 'ok' : 'warn');
+  const wx = f.weather;
+  if (wx) {
+    if (wx.ok) boot.set('wx', 'OPEN-METEO · wind', 'ok');
+    else if (wx.last) boot.set('wx', 'OPEN-METEO · stale', 'warn');
+    else if (Date.now() - BOOT_T0 > 45e3) boot.set('wx', 'OPEN-METEO · no reading (rate-limited?)', 'warn');
+    else boot.set('wx', 'OPEN-METEO · pending', 'pend');
+  }
+  if (ds.mode === 'browser') {
+    const h = f.history;
+    if (h?.ok) boot.set('hist', `HISTORY · 6 h, ${fmt(h.vessels || 0)} ships`, 'ok');
+    else boot.set('hist', 'HISTORY · not available', 'warn');
+  } else boot.set('hist', state.sseOk ? 'SERVER · live' : 'SERVER · connecting', state.sseOk ? 'ok' : 'pend');
+  if (dt?.ok && state.vessels.size) bootDataArrived();
+}
+setTimeout(bootFeeds, 46e3); // re-check slow feeds once (weather) even if no feeds event arrives
+// Dashboard copy of the log: shown in the map frame on first load, fades once ship data is in (or after 6 s).
+let bootOvState = 'idle', bootDataAt = 0;
+function bootDataArrived() { if (!bootDataAt) bootDataAt = Date.now(); if (bootOvState === 'shown') hideBootOv(1200); }
+function showBootOv() {
+  if (bootOvState !== 'idle') return;
+  bootOvState = 'shown';
+  const ov = $('#boot-ov');
+  boot.attach($('#boot-l'), 6);
+  ov.classList.add('on');
+  hideBootOv(bootDataAt ? 2200 : 6000);
+}
+function hideBootOv(ms) {
+  clearTimeout(hideBootOv.t);
+  hideBootOv.t = setTimeout(() => { bootOvState = 'gone'; $('#boot-ov').classList.remove('on'); }, ms);
+}
+
 function renderAll() {
   renderTiles();
   renderLayers();
@@ -1000,7 +1134,7 @@ function renderAll() {
 }
 
 // ---------------------------------------------------------------- mobile sheet
-const SHEET_TABS = ['ALERTS', 'ASSETS', 'INCIDENTS', 'GLIDERS', 'SOURCES'];
+const SHEET_TABS = ['ALERTS', 'CHANGES', 'ASSETS', 'INCIDENTS', 'GLIDERS', 'SOURCES'];
 let sheetTab = 'ALERTS';
 let sheetMode = null;
 function layoutForViewport() {
@@ -1019,7 +1153,7 @@ function layoutForViewport() {
   } else {
     const homes = { left: $('.col-left'), right: $('.col-right'), bottom: $('.bottom') };
     // restore original order
-    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'Signal Core', "What you shouldn't conclude", 'Incident Log', 'Glider Coverage', 'Data Sources'];
+    const order = ['Sensor Grid', 'Data Layers', 'Critical Assets', 'Visual Presets', 'Alert Stream', 'What changed', 'Signal Core', "What you shouldn't conclude", 'Incident Log', 'Glider Coverage', 'Data Sources'];
     panels.sort((a, b) => order.indexOf($('.t', a).textContent) - order.indexOf($('.t', b).textContent));
     panels.forEach((p) => { p.hidden = false; if (p.dataset.home) homes[p.dataset.home].appendChild(p); });
   }
@@ -1063,6 +1197,7 @@ function loadGlobe() {
 }
 const resize3d = () => globe3d?.viewer.resize();
 const flat = createFlatMap($('#flat'));
+setLite(LITE);
 let viewMode = 'flat'; // flat map by default; 'globe' only when the user opens 3D GLOBE
 const activeView = () => (viewMode === 'flat' || !globe3d ? flat : globe3d);
 const BOTH = ['setInfra', 'setCoast', 'setLand', 'setIncidents', 'upsertVessels', 'removeVessels', 'setFocus', 'setGliders', 'setLayer', 'showTrack', 'clearTrack', 'setReserved'];
@@ -1132,10 +1267,11 @@ function exitHero() {
     introDone = true;
     revealMap(); fadeGlobe();
     setTimeout(() => { document.body.classList.remove('hero-out'); heroGlobe?.destroy(); heroGlobe = null; hero?.remove(); }, 450);
+    showBootOv();
     maybeOfferTour();
   };
   const r = $('#flat').getBoundingClientRect();
-  if (heroGlobe && !REDUCED) {
+  if (heroGlobe && !REDUCED && !LITE) {
     heroGlobe.swoop(r, FLAT_VIEW, { duration: SWOOP, pad: Math.min(r.width, r.height) * 0.04, clip: true, done: finish });
     setTimeout(revealMap, SWOOP * 0.6);
     setTimeout(fadeGlobe, SWOOP * 0.8);
@@ -1146,6 +1282,7 @@ if (params.has('nohero')) {
   introDone = true;
   document.body.classList.remove('hero-on');
   $('#hero')?.remove();
+  showBootOv();
   setTimeout(maybeOfferTour, 1500);
 } else {
   $('#hero').addEventListener('click', (e) => { if (e.target.closest('.byline')) return; exitHero(e); });
@@ -1242,6 +1379,13 @@ document.addEventListener('click', (e) => {
   if (pr) { setPreset(pr.dataset.p); return; }
   const al = t.closest('.alert[data-id]');
   if (al) { selectAlert(al.dataset.id); return; }
+  const cw = t.closest('[data-cw]');
+  if (cw) { chgWindow = cw.dataset.cw; $$('[data-cw]').forEach((b) => b.classList.toggle('on', b === cw)); renderChangeLog(); return; }
+  const cg = t.closest('.chg');
+  if (cg) { openChange(cg); return; }
+  if (t.closest('#b-lite')) { setLite(!LITE, true); return; }
+  const vis = t.closest('[data-vis]');
+  if (vis) { setLite(vis.dataset.vis === 'lite', true); return; }
   const as = t.closest('.asset[data-name]');
   if (as) {
     const a = namedAssets().find((x) => x.name === as.dataset.name);
@@ -1312,6 +1456,12 @@ const TOUR_STEPS = [
     title: 'Alerts are patterns, not findings',
     body: 'When a ship <b>loiters</b>, <b>slows sharply</b> or <b>goes silent</b> over a cable, it lands here. Click one to fly to it.<br><span class="lv w">WATCH</span> one signal · <span class="lv e">ELEVATED</span> two · <span class="lv h">HIGH</span> three, including a drag or AIS gap.',
     before: () => onTab('ALERTS'),
+  },
+  {
+    target: tabPanel('CHANGES', '.col-right .panel.chgp'),
+    title: 'What changed since you arrived',
+    body: 'A running log of <b>transitions</b>: new and escalated alerts, cleared ones, listed ships entering a named cable or pipeline corridor, new AIS gaps, and feeds going stale. Switch between <b>since you opened</b> and <b>last hour</b>; click a row to fly there.',
+    before: () => onTab('CHANGES'),
   },
   {
     target: () => (MOBILE() ? '#sheet' : (state.selectedAlert ? '#dossier' : '.col-right .panel.sc')),

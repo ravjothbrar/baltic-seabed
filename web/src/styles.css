@@ -940,3 +940,66 @@ a.chip.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .bf-ev li { margin: 2px 0; }
 .bf-ev b { font-weight: 600; color: var(--ink, #e6f2f4); }
 .bf-ev i { color: var(--ink-3, #9fb3bb); font-style: normal; }
+
+/* ── What changed ───────────────────────────────────────────────────────── */
+.chgp { min-height: 0; }
+.chg-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px 0; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-3); }
+.chg-cnt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r); flex: none; }
+.seg button { font: inherit; font-size: 9.5px; letter-spacing: 0.08em; color: var(--ink-3); background: none; border: 0; padding: 3px 7px; cursor: pointer; text-transform: uppercase; }
+.seg button + button { border-left: 1px solid var(--line-2); }
+.seg button.on { color: var(--bg); background: var(--mint); }
+.chgs { display: flex; flex-direction: column; }
+.chg { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 6px 2px; color: inherit; font: inherit; cursor: pointer; }
+.chg:hover { background: rgba(83, 240, 201, 0.045); }
+.chg.gone { opacity: 0.5; cursor: default; }
+.chg-c { flex: none; min-width: 40px; text-align: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 2px 4px; border: 1px solid currentColor; border-radius: var(--r); color: var(--cyan); }
+.chg-c.w { color: var(--cyan); } .chg-c.e { color: var(--amber); } .chg-c.h { color: var(--red); }
+.chg-c.dn, .chg-c.cl { color: var(--ink-4); } .chg-c.li { color: var(--magenta); } .chg-c.dk, .chg-c.st { color: var(--amber); } .chg-c.ok { color: var(--ok); }
+.chg-n { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chg-n .nm { font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chg-n small { font-size: 10.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chg-n small b { color: var(--ink-2); font-weight: 600; }
+.chg-t { flex: none; font-family: var(--mono); font-size: 10px; color: var(--ink-4); }
+
+/* ── boot log overlay (map frame, first load) ─────────────────────────── */
+.boot-ov { position: absolute; left: 14px; bottom: 46px; z-index: 9; pointer-events: none; padding: 8px 10px; min-width: 230px; max-width: calc(100% - 28px);
+  background: rgba(4, 10, 12, 0.82); border: 1px solid var(--line-2); border-left: 2px solid var(--mint);
+  font-family: var(--mono); font-size: 10.5px; line-height: 16px; letter-spacing: 0.06em; color: var(--ink-2);
+  opacity: 0; transform: translateY(-4px); transition: opacity .5s, transform .5s; }
+.boot-ov.on { opacity: 1; transform: none; }
+.boot-ov .boot-k { font-size: 9px; letter-spacing: 0.2em; color: var(--ink-4); margin-bottom: 3px; }
+.boot-ov .bl { display: flex; gap: 8px; white-space: nowrap; }
+.boot-ov .bl-t { overflow: hidden; text-overflow: ellipsis; }
+.boot-ov .bl-s { color: var(--ok); }
+.boot-ov .bl.warn, .boot-ov .bl.warn .bl-s { color: var(--warn); }
+.boot-ov .bl.pend, .boot-ov .bl.off, .boot-ov .bl.pend .bl-s, .boot-ov .bl.off .bl-s { color: var(--ink-4); }
+@media (max-width: 900px) { .boot-ov { top: 218px; bottom: auto; left: 12px; font-size: 9.5px; line-height: 14px; min-width: 0; }
+  .sheet .stabs button { font-size: 10px; letter-spacing: 0.06em; padding: 8px 3px; } }
+
+/* ── skeleton placeholder for tiles awaiting data ─────────────────────── */
+.skel { display: inline-block; width: 3.2em; height: 0.8em; border-radius: 2px; vertical-align: middle;
+  background: linear-gradient(90deg, rgba(140, 178, 192, 0.1) 0%, rgba(140, 178, 192, 0.26) 50%, rgba(140, 178, 192, 0.1) 100%) 0 0 / 200% 100%;
+  animation: skel 1.3s ease-in-out infinite; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ── Visuals Lite ─────────────────────────────────────────────────────── */
+#b-lite b { margin-left: 6px; }
+body.lite #b-lite b { color: var(--amber); }
+body.lite #app::after, body.lite .ov-grid, body.lite .ov-scan, body.lite .ov-vig, body.lite .ov-sweep, body.lite .radar { display: none !important; }
+body.lite *, body.lite *::before, body.lite *::after {
+  animation: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  text-shadow: none !important; box-shadow: none !important; filter: none !important; }
+body.lite .tour-hole { box-shadow: 0 0 0 200vmax rgba(1, 4, 5, 0.74), 0 0 0 1px var(--mint) !important; } /* the tour's cut-out is a shadow, not decoration */
+body.lite .skel { background: rgba(140, 178, 192, 0.16); }
+
+/* desktop right column: Signal Core in two columns, so What changed gets the height */
+.col-right .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; }
+.col-right .meter { grid-template-columns: 70px 1fr 30px; gap: 6px; }
+.col-right .meter .l { font-size: 10px; letter-spacing: 0.06em; }
+/* the Lite chip names itself in full only where the top bar has room */
+#b-lite .lbl { display: none; }
+#b-lite .ic { width: 12px; height: 12px; margin-right: 2px; vertical-align: -2px; }
+@media (min-width: 1600px) { #b-lite .lbl { display: inline; } #b-lite .ic { display: none; } }
+.vis-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--ink-3); }
+@media (max-width: 1399px) { #b-lite { display: none; } }

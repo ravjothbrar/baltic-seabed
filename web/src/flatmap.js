@@ -285,14 +285,15 @@ export function createFlatMap(container) {
   }
 
   // ---------- canvas draw (screen space) ----------
-  let animT = 0, rafPending = false;
+  let animT = 0, rafPending = false, lite = false;
   function draw() { if (!rafPending) { rafPending = true; requestAnimationFrame(frame); } }
   function frame(ts) {
     rafPending = false;
     animT = ts / 1000;
     render();
     // keep animating while something pulses or moves
-    if (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents)) setTimeout(draw, 50);
+    // Lite: everything is static, so frames are only drawn on demand (data, pan, zoom)
+    if (!lite && (gliders.length && layerVis.gliders || hasAlerts() || (incidents.length && layerVis.incidents))) setTimeout(draw, 50);
   }
   let alertCount = 0;
   const hasAlerts = () => alertCount > 0 && layerVis.vessels;
@@ -329,7 +330,7 @@ export function createFlatMap(container) {
         ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.fillStyle = COL.glider;
-      if (!G) for (const g of gliders) { // drifting chevrons are decoration: skipped mid-gesture
+      if (!G && !lite) for (const g of gliders) { // drifting chevrons are decoration: skipped mid-gesture
         const a = animT * 0.07 + g.phase;
         const along = Math.cos(a) * 2.4, across = Math.sin(a) * 0.8;
         const dx = (along * Math.cos(g.head) - across * Math.sin(g.head)) * ppk;
@@ -376,7 +377,7 @@ export function createFlatMap(container) {
         }
         ctx.fillStyle = c; ctx.beginPath(); ctx.arc(X, Y, r, 0, Math.PI * 2); ctx.fill();
         if (flagged) { ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke(); }
-        if (v.level && !dim && !G) { // pulse rings skipped mid-gesture
+        if (v.level && !dim && !G && !lite) { // pulse rings skipped mid-gesture
           alertCount++;
           ctx.globalAlpha = 0.9 * (1 - ph); ctx.strokeStyle = c; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.arc(X, Y, r + 3 + ph * 14, 0, Math.PI * 2); ctx.stroke();
@@ -386,7 +387,7 @@ export function createFlatMap(container) {
     }
     // incidents: diamonds
     if (layerVis.incidents) {
-      const s = 6 + 0.8 * Math.sin(animT * 3.2);
+      const s = lite ? 6 : 6 + 0.8 * Math.sin(animT * 3.2);
       for (const i of incidents) {
         const X = sx(i.x), Y = sy(i.y);
         ctx.save(); ctx.translate(X, Y); ctx.rotate(Math.PI / 4);
@@ -554,6 +555,7 @@ export function createFlatMap(container) {
     setInfra, setCoast, setLand, setIncidents, setSar, upsertVessels, removeVessels, setFocus,
     showTrack, clearTrack, setGliders, setTasking, setLayer, flyRegion, flyPoint, zoomBy, countInView,
     setReserved: (f) => { reserved = f; },
+    setLite: (on) => { lite = !!on; draw(); },
     getFocus: () => focus,
     resize: () => { fit(); zsel.call(zoomer.transform, T); },
     redraw: () => { redrawLabels(); render(); },

@@ -74,6 +74,11 @@ and shows how much of the network one operator could keep under watch.
   </tr>
 </table>
 
+**Also on the dashboard:**
+- **What changed.** A running log of new, escalated and cleared alerts, listed ships entering a named corridor, and feeds dropping or recovering. You can view it "since you opened" or for the last hour, and clicking an entry takes you to it.
+- **Real boot check.** The landing screen and the map show each feed's actual status as it comes in, such as "Digitraffic · 773 ships" or "aisstream · no key". Failures show in amber and nothing gets a ✓ it hasn't earned.
+- **Visuals Lite.** Turns off glow, grain, pulses and animation. The map then redraws only when something changes. Lite is on by default on phones and with reduced motion, and you can switch it under Visual Presets.
+
 <p align="center"><img src="docs/readme/mobile.webp" alt="The landing screen and the live map on a phone" width="620"></p>
 
 ## How it decides what to flag
