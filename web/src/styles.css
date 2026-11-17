@@ -814,9 +814,6 @@ body.hero-on .mapctl { display: none; }
 .legend { color: var(--ink-2); }
 
 /* footer */
-.foot-made { color: #fff; font-family: var(--sans); font-size: 12px; letter-spacing: 0.02em; }
-.foot-made .foot-link { color: #fff; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(255, 255, 255, 0.35); text-underline-offset: 3px; }
-.foot-made .foot-link:hover { text-decoration-color: #fff; }
 .foot-src { color: var(--ink-3); font-size: 11px; letter-spacing: 0.04em; }
 .src-note { margin: 8px 2px 2px; color: var(--ink-3); font-size: 11px; line-height: 1.45; }
 @media (max-width: 900px) {
