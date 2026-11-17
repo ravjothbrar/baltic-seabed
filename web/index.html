@@ -39,7 +39,7 @@
     @font-face { font-family: 'BSW Mono'; src: url(fonts/plexmono-500.woff2) format('woff2'); font-weight: 500; font-display: swap; }
     /* metric-ish fallbacks so nothing reflows much when the web fonts arrive */
     @font-face { font-family: 'BSW Display Fallback'; src: local('Arial Narrow Bold'), local('ArialNarrow-Bold'), local('Roboto Condensed Bold'), local('DejaVu Sans Condensed Bold'), local('Liberation Sans Narrow Bold'); font-weight: 600 900; size-adjust: 104%; }
-    :root { --ix-accent: #e2533f; --ix-dim: rgba(255,255,255,.56); --ix-line: rgba(255,255,255,.16); }
+    :root { --ix-accent: #e2533f; --ix-dim: rgba(255,255,255,.56); --ix-line: rgba(255,255,255,.16); --ix-ok: #53f0c9; --ix-warn: #ffb547; }
     html, body { margin: 0; background: #000; }
     .intro { position: fixed; inset: 0; z-index: 1000; overflow: hidden; color: #fff; cursor: pointer; background: #000;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: background .7s ease; }
@@ -101,7 +101,19 @@
     body.hero-out .intro-ui, body.hero-out .intro-shade, body.hero-out .intro::before { opacity: 0; }
     .intro.done { background: transparent; pointer-events: none; }
     .intro.done .intro-globe, .intro.done .intro-ui, .intro.done .intro-shade { opacity: 0; }
+    /* boot log: real feed checks, typed in as each completes. Fixed height so the layout fit never shifts. */
+    .intro-boot { margin-top: 12px; height: 0; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; align-content: start;
+      font: 400 10.5px/16px 'BSW Mono', ui-monospace, monospace; letter-spacing: .06em; color: rgba(255,255,255,.62); }
+    .intro-boot .bl { display: flex; gap: 8px; white-space: nowrap; min-width: 0; }
+    .intro-col.tight .intro-p { margin-top: 10px; } .intro-col.tight .intro-act { margin-top: 16px; }
+    .intro-col.tight .intro-boot { font-size: 10px; line-height: 14px; margin-top: 8px; }
+    .intro-boot .bl-t { overflow: hidden; text-overflow: ellipsis; }
+    .intro-boot .bl-s { color: var(--ix-ok); }
+    .intro-boot .bl.warn, .intro-boot .bl.warn .bl-s { color: var(--ix-warn); }
+    .intro-boot .bl.pend, .intro-boot .bl.off { color: rgba(255,255,255,.4); }
+    .intro-boot .bl.pend .bl-s, .intro-boot .bl.off .bl-s { color: inherit; }
     @media (max-width: 900px) {
+      .intro-boot { grid-template-columns: 1fr; line-height: 15px; font-size: 9.5px; }
       .intro-shade { background: linear-gradient(180deg, rgba(0,0,0,.2) 0%, rgba(0,0,0,.65) 60%, rgba(0,0,0,.85) 100%); }
       .intro::before { left: 3px; width: 4px; }
       .intro-top { left: 18px; right: 18px; top: 16px; }
@@ -118,10 +130,17 @@
     }
     @media (prefers-reduced-motion: reduce) { .intro *, .intro *::after { animation: none !important; } .intro-bar { display: none; } }
   </style>
+  <link rel="alternate" type="application/rss+xml" title="Baltic Seabed Watch alerts" href="data/alerts.xml" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 </head>
 <body class="hero-on">
+  <script>
+    // Visuals Lite before first paint (same rule as main.js: saved choice, else phones and reduced motion)
+    (function () { var v = null; try { v = localStorage.getItem('bsw-visuals'); } catch (e) {}
+      var d = matchMedia('(prefers-reduced-motion: reduce)').matches || (matchMedia('(pointer: coarse)').matches && innerWidth < 900);
+      if (v === 'lite' || (v !== 'full' && d)) document.body.classList.add('lite'); })();
+  </script>
   <div id="hero" class="intro" aria-label="Baltic Seabed Watch: intro">
     <canvas id="intro-globe" class="intro-globe" aria-hidden="true"></canvas>
     <div class="intro-shade"></div>
@@ -139,6 +158,7 @@
           <a class="byline byline-hero" href="https://ravjothbrar.com" target="_blank" rel="noopener"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
         </div>
         <div class="intro-hint"><span class="d">Click, scroll or press any key</span><span class="m">Tap anywhere to enter</span></div>
+        <div class="intro-boot" id="hero-boot" aria-label="Feed checks" aria-live="polite"></div>
       </section>
       <section class="intro-stats" aria-label="Live figures">
         <div><small>Ships tracked live in the Baltic</small><b><span data-hero="ships">—</span></b></div>
@@ -170,9 +190,27 @@
         sub.style.top = (top - subH - Math.max(10, fs * 0.05)) + 'px';
         var sTop = top - subH - Math.max(10, fs * 0.05) - stats.getBoundingClientRect().height - (mob ? 22 : 34);
         stats.style.top = sTop + 'px';
+        // boot log gets whatever rows fit between the column and the stats (desktop: 2 columns, max 3 rows; phone: 1 column, max 4)
+        var boot = document.getElementById('hero-boot'), lh = mob ? 15 : 16, cols = mob ? 1 : 2, rows = 0;
+        if (boot) boot.style.height = '0px';
         var colH = col.getBoundingClientRect().height;
-        if (mob) col.style.top = Math.max(76, sTop - colH - 26) + 'px';
-        else { col.style.top = ''; var cTop = col.getBoundingClientRect().top; if (cTop + colH + 40 > sTop) col.style.top = Math.max(88, sTop - colH - 40) + 'px'; }
+        if (mob) {
+          rows = Math.max(0, Math.min(4, Math.floor((sTop - 26 - colH - 76 - 12) / lh)));
+          if (boot) { boot.style.height = rows * lh + 'px'; boot.dataset.max = rows * cols; colH = col.getBoundingClientRect().height; }
+          col.style.top = Math.max(76, sTop - colH - 26) + 'px';
+        } else {
+          var hint = col.querySelector('.intro-hint'); if (hint) hint.style.display = '';
+          col.classList.remove('tight');
+          col.style.top = ''; var cTop = col.getBoundingClientRect().top;
+          if (cTop + colH + 40 > sTop) { col.style.top = Math.max(88, sTop - colH - 40) + 'px'; cTop = col.getBoundingClientRect().top; }
+          var room = function (gap, m) { return Math.max(0, Math.min(3, Math.floor((sTop - gap - (cTop + col.getBoundingClientRect().height) - m) / lh))); };
+          rows = room(24, 12);
+          // short screens: first the live checks replace the hint (ENTER says the same), then the column tightens up
+          if (rows < 3 && hint && boot) { hint.style.display = 'none'; rows = room(24, 12); }
+          if (rows < 3 && boot) { col.classList.add('tight'); lh = 14; rows = room(16, 8); }
+          if (boot) { boot.style.height = rows * lh + 'px'; boot.dataset.max = rows * cols; }
+        }
+        if (boot) boot.style.marginTop = rows ? '' : '0';
       }
       fit(); addEventListener('resize', fit);
       if (document.fonts) { document.fonts.load('900 100px "BSW Display"').then(fit); document.fonts.ready.then(fit); }

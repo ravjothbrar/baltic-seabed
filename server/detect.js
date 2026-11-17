@@ -1,15 +1,11 @@
 // Rule-based, explainable detection. Pure: same inputs → same output, so eval can replay it.
 // track rows: [lon, lat, tsMs, sog, cog, nav]
 import { distNm } from './geo.js';
+import CONFIG from '../config/seabed.config.js';
 import { WORK_TYPES, isTankerOrCargo, FOC_SHADOW, RU_GOF_DEST } from './ais-meta.js';
 
-export const T = {
-  LOITER_SOG: 3, LOITER_MIN: 20, DRAG_MIN: 10,
-  DRAG_SOG_MIN: 1, DRAG_SOG_MAX: 7, DRAG_DROP: 0.6, DRAG_MEDIAN_MIN: 8, DRAG_KM: 2,
-  CROSS_NM: 0.3, CROSS_DROP: 0.5, CROSS_MEDIAN_MIN: 6,
-  DARK_MIN: 45, DARK_MAX_H: 6, DARK_NEAR_NM: 10, DARK_PEERS: 5, DARK_PEER_NM: 10,
-  PORT_NM: 3, GALE_KN: 30, WAVE_M: 3,
-};
+// Thresholds live in config/seabed.config.js (one documented place, shared with the browser).
+export const T = { ...CONFIG.rules };
 
 export const SIGNAL_INFO = {
   LOITER: { label: 'Loitering on infrastructure', base: 'weak', why: 'Ships slow down or stop for pilots, berths, weather and orders. On its own this is routine.' },

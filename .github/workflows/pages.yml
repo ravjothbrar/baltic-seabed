@@ -5,6 +5,7 @@
 # Optional repo secrets (Settings → Secrets and variables → Actions):
 #   AISSTREAM_API_KEY  whole-Baltic AIS in the 15-min history (aisstream.io, free)
 #   GFW_API_TOKEN      satellite radar detections of ships not on AIS (globalfishingwatch.org, free, non-commercial)
+#   DISCORD_WEBHOOK_URL  push FLASH/PRIORITY alerts to a Discord channel (Channel → Integrations → Webhooks)
 name: pages
 on:
   push:
@@ -54,6 +55,12 @@ jobs:
         run: node --no-warnings scripts/build-brief.mjs web/dist/data/history.json web/dist/data/brief.json web/dist/data/sar.json
         env:
           PREV_URL: ${{ steps.pages.outputs.base_url }}/data/brief.json
+      - name: Alerts feed (RSS + JSON; Discord pushes if DISCORD_WEBHOOK_URL is set)
+        run: node --no-warnings scripts/build-alerts.mjs web/dist/data/history.json web/dist/data
+        env:
+          PREV_BASE: ${{ steps.pages.outputs.base_url }}/data/
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       - run: cp server/data/watchlist.json web/dist/data/watchlist.json
       - uses: actions/upload-pages-artifact@v3
         with:

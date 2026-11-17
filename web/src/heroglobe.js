@@ -30,6 +30,7 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
   let base = { x: 0, y: 0, r: 0 }; // hero composition (set by layout())
   let anim = null; // swoop state
   let raf = 0, last = 0, drift = 0, alive = true, landAt = null;
+  let still = !!reduced; // reduced motion or Visuals Lite: no drift, frames only on demand
   const listeners = { land: [] };
 
   function layout() {
@@ -149,11 +150,11 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
       apply(b, [-c[0], -c[1], 0]);
       draw();
       if (anim.p >= 1) { const done = anim.done; anim = null; done?.(); return; }
-    } else if (!reduced) {
+    } else if (!still) {
       drift += dt / 1000;
       rot = [-CENTER[0] - Math.sin(drift * 0.12) * 6, -CENTER[1] + Math.sin(drift * 0.07) * 1.5, 0]; // slow sway, Baltic stays in view
       apply(base, rot); draw();
-    }
+    } else return; // static: nothing to animate, stop scheduling frames
     raf = requestAnimationFrame(frame);
   }
 
@@ -195,6 +196,11 @@ export function createHeroGlobe(canvas, { landUrl, reduced = false } = {}) {
   if (landUrl) {
     fetch(landUrl, { priority: 'high' }).then((r) => r.json()).then((d) => setLand(d.polys)).catch(() => {});
   }
-  if (!reduced) raf = requestAnimationFrame(frame);
-  return { setFocusShips, setInfra, setVessels, setIncidents, setLand, swoop, destroy, layout, on: (ev, f) => listeners[ev].push(f), get landAt() { return landAt; } };
+  if (!still) raf = requestAnimationFrame(frame);
+  function setLite(on) {
+    still = !!on || !!reduced;
+    if (still) { if (raf && !anim) { cancelAnimationFrame(raf); raf = 0; } draw(); }
+    else if (!raf && alive) { last = 0; raf = requestAnimationFrame(frame); }
+  }
+  return { setLite, setFocusShips, setInfra, setVessels, setIncidents, setLand, swoop, destroy, layout, on: (ev, f) => listeners[ev].push(f), get landAt() { return landAt; } };
 }
