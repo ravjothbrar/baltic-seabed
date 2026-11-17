@@ -91,7 +91,7 @@ const BRAND_SVG = `<svg class="brand-mark" viewBox="0 0 32 32"><circle cx="16" c
 
 document.querySelector('#app').innerHTML = `
   <header class="topbar">
-    <div class="brand">${BRAND_SVG}<div class="brand-name">BALTIC <b>SEABED</b> WATCH</div></div>
+    <div class="brand">${BRAND_SVG}<div class="brand-name"><span class="bn-1">BALTIC </span><b>SEABED</b> WATCH</div></div>
     <div class="strap"><span class="dot"></span>UNCLASSIFIED // OPEN SOURCE</div>
     <a class="byline" href="https://ravjothbrar.com" target="_blank" rel="noopener" data-tip="About the author · ravjothbrar.com"><span class="byline-k">CREATED BY</span><span class="byline-n">Ravjoth Brar</span><span class="byline-a">↗</span></a>
     <div class="top-spacer"></div>
@@ -702,7 +702,8 @@ function renderTop() {
   const lvl = stale ? 'STALE' : s?.level || 'NOMINAL';
   const pill = $('#c-level');
   pill.dataset.level = lvl;
-  pill.textContent = lvl === 'STALE' ? (state.lastSnapshot ? 'STALE' : 'CONNECTING') : lvl === 'HIGH' ? 'HIGH ALERT' : lvl;
+  pill.innerHTML = lvl === 'STALE' ? (state.lastSnapshot ? 'STALE' : 'CONNECTING') : lvl === 'HIGH' ? 'HIGH<span class="pl-x">ALERT</span>' : lvl;
+  requestAnimationFrame(() => fitTopbar()); // width changed; re-fit after module init
   const nSig = s?.signals ? Object.values(s.signals).reduce((a, b) => a + b, 0) : 0;
   $('#h-feeds').textContent = `FEEDS ${feeds.length ? okFeeds + '/' + feeds.length : '—'} · SIGNALS ${fmt(nSig)}`;
   $('#h-state').textContent = `STATE ▸ ${stale ? 'STALE' : state.vessels.size ? 'TRACKING' : 'ACQUIRING'}`;
@@ -1740,7 +1741,7 @@ if (!IS_MAC) for (const k of document.querySelectorAll('#b-search .kbd, #modal .
 // ---------------------------------------------------------------- top bar fit
 // Drop secondary top-bar items, least important first, until it fits on one line at any width.
 const TB_DROP = ['.chip:has(#c-sweep)', '.chip:has(#c-msgs)', '.strap', '#b-lite .lbl', '#b-search .lbl', '#b-how .lbl', '#b-signals .lbl',
-  '.chip:has(#c-feeds)', '#b-search .kbd', '#b-tour .lbl', '#b-lite', '.chip:has(#c-utc)', '#b-brief .bb-t', '.byline .byline-k'];
+  '.chip:has(#c-feeds)', '#b-search .kbd', '#b-tour .lbl', '#b-lite', '.chip:has(#c-utc)', '#b-brief .bb-t', '.byline .byline-k', '#c-level .pl-x', '.brand-name .bn-1', '.brand > svg'];
 function fitTopbar() {
   const tb = $('.topbar');
   if (!tb) return;

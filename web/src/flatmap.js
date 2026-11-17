@@ -2,7 +2,7 @@
 //  · land, borders, graticule, cables/pipelines: SVG under one zoom transform (non-scaling strokes)
 //  · ships, tracks, gliders, incidents, tasking: one canvas, redrawn per frame in screen space
 //  · labels: screen-space SVG text, constant size at every zoom, greedy collision pass
-import { geoMercator, geoPath, geoGraticule10, geoArea } from 'd3-geo';
+import { geoMercator, geoPath, geoGraticule10, geoArea, geoTransform } from 'd3-geo';
 import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
 import { select } from 'd3-selection';
 import 'd3-transition';
@@ -53,7 +53,7 @@ function shortTitle(t = '') {
 export function createFlatMap(container) {
   container.classList.add('flatmap');
   container.innerHTML = `
-    <svg class="fl-base"><rect class="fl-sea-bg" width="100%" height="100%"/><defs><mask id="fl-out" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-200000" y="-200000" width="400000" height="400000"><rect x="-200000" y="-200000" width="400000" height="400000" fill="#fff"/><path class="fl-boxp" fill="#000"/></mask><clipPath id="fl-in" clipPathUnits="userSpaceOnUse"><path class="fl-boxp"/></clipPath></defs><g class="fl-z"><path class="fl-grat"/><path class="fl-land fl-land-w" mask="url(#fl-out)"/><path class="fl-land" clip-path="url(#fl-in)"/><path class="fl-border"/><g class="fl-infra"></g></g></svg>
+    <svg class="fl-base"><rect class="fl-sea-bg" width="100%" height="100%"/><defs><mask id="fl-out" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-200000" y="-200000" width="400000" height="400000"><rect x="-200000" y="-200000" width="400000" height="400000" fill="#fff"/><path class="fl-boxp" fill="#000"/></mask><clipPath id="fl-in" clipPathUnits="userSpaceOnUse"><path class="fl-boxp"/></clipPath></defs><g class="fl-z"><path class="fl-grat"/><path class="fl-land fl-land-w" mask="url(#fl-out)"/><path class="fl-land" fill-rule="evenodd" clip-path="url(#fl-in)"/><path class="fl-border"/><g class="fl-infra"></g></g></svg>
     <canvas class="fl-canvas"></canvas>
     <svg class="fl-labels"></svg>`;
   const svg = select(container).select('svg.fl-base');
@@ -68,6 +68,10 @@ export function createFlatMap(container) {
   const projection = geoMercator().rotate([-20, 0]);
   let kMin = 1;
   const path = geoPath(projection);
+  // Planar path: projects each vertex but joins them with straight screen lines. Used for the detailed Baltic land and
+  // its box, which are clipped along parallels/meridians and never cross the antimeridian. Spherical joins would bow
+  // those cut edges into great-circle arcs (and can flip clipped rings inside out).
+  const flatPath = geoPath(geoTransform({ point(x, y) { const q = projection([x, y]); this.stream.point(q[0], q[1]); } }));
   let T = zoomIdentity;
   const listeners = { pick: [], hover: [], camera: [] };
   const layerVis = { telecom: true, power: true, pipeline: true, vessels: true, incidents: true, gliders: true, sar: true };
@@ -108,9 +112,9 @@ export function createFlatMap(container) {
 
   function reproject() {
     gz.select('.fl-grat').attr('d', path(geoGraticule10()));
-    if (land) gz.select('.fl-land:not(.fl-land-w)').attr('d', path(land));
+    if (land) gz.select('.fl-land:not(.fl-land-w)').attr('d', flatPath(land));
     if (landW) gz.select('.fl-land-w').attr('d', path(landW));
-    if (landBox) select(container).selectAll('.fl-boxp').attr('d', path(landBox));
+    if (landBox) select(container).selectAll('.fl-boxp').attr('d', flatPath(landBox));
     if (borders) gz.select('.fl-border').attr('d', path(borders));
     for (const l of infra) l.pts = l.coords.map(([x, y]) => P(x, y));
     gInfra.selectAll('path.fl-line').attr('d', (l) => 'M' + l.pts.map((p) => p.join(',')).join('L'));
